@@ -483,13 +483,18 @@ function parseArchivo(name,text){
   let key=periodoDeContenido(recs);
   if(!key) key=periodoDeNombre(name);
   if(!key) key=fmtKey(new Date().getFullYear(),new Date().getMonth());
-  const rows=recs.map(r=>({
-    sede:r.sede, nombre:r.nombre, dni:r.dni||'',
-    plan:r.plan||'', asesor:r.asesor||'', estado:r.estado||'',
-    permanencia_meses:r.perm, ultima_asistencia:fmtISO(r.ult),
-    fecha_stop:fmtISO(r.stop), vencimiento:fmtISO(r.venc),
-    periodo:key, es_da:norm(r.estado).includes('da')
-  }));
+  const rows=recs.map(r=>{
+    const dniLimpio=(r.dni||'').replace(/\D/g,'');   // solo dígitos
+    const ident=dniLimpio||norm(r.nombre);            // DNI si existe, si no el nombre normalizado
+    return {
+      sede:r.sede, nombre:r.nombre, dni:r.dni||'',
+      plan:r.plan||'', asesor:r.asesor||'', estado:r.estado||'',
+      permanencia_meses:r.perm, ultima_asistencia:fmtISO(r.ult),
+      fecha_stop:fmtISO(r.stop), vencimiento:fmtISO(r.venc),
+      periodo:key, es_da:norm(r.estado).includes('da'),
+      dedup_key: key+'|'+norm(r.sede)+'|'+ident
+    };
+  });
   return {key,rows,faltaCol};
 }
 
@@ -506,13 +511,12 @@ async function cargar(fs){
       rep.push({name:f.name, n:res.rows.length, info:(sedes||'—')+(res.key?' · '+fmtLabel(res.key):''), falta:res.faltaCol});
     }catch(err){ console.error(err); rep.push({name:f.name, n:0, err:true}); }
   }
-  // dedup dentro del lote (clave sede|periodo|dni|nombre), se queda el más completo
+  // dedup dentro del lote por la huella normalizada, se queda el más completo
   const seen=new Map();
   const score=x=>(x.ultima_asistencia?2:0)+(x.permanencia_meses!=null?1:0);
   filas.forEach(r=>{
-    const k=r.sede+'|'+r.periodo+'|'+r.dni+'|'+norm(r.nombre);
-    const prev=seen.get(k);
-    if(!prev||score(r)>score(prev)) seen.set(k,r);
+    const prev=seen.get(r.dedup_key);
+    if(!prev||score(r)>score(prev)) seen.set(r.dedup_key,r);
   });
   const rows=[...seen.values()];
   const detalle=rep.map(r=>(r.n?'✓ ':'⚠ ')+esc(r.name)+': '+r.n+' bajas'
@@ -525,7 +529,7 @@ async function cargar(fs){
   const CH=500; let subidas=0;
   for(let i=0;i<rows.length;i+=CH){
     const lote=rows.slice(i,i+CH);
-    const { error } = await sb.from('bajas').upsert(lote,{ onConflict:'sede,periodo,dni,nombre' });
+    const { error } = await sb.from('bajas').upsert(lote,{ onConflict:'dedup_key' });
     if(error){ setStatus('Error al guardar: '+error.message+'<br>'+detalle, true); return; }
     subidas+=lote.length;
   }
