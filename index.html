@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Nómade · Radar de fugas</title>
+<title>Radar de fugas · Nómade</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --ground:#0E2B2E;
@@ -35,14 +36,27 @@ h1,h2,h3,.disp{font-family:'Barlow Condensed','Inter',sans-serif;font-weight:600
 .mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
 .wrap{max-width:1240px;margin:0 auto;padding:0 24px 80px}
 
+/* ---------- login ---------- */
+.login-screen{position:fixed;inset:0;z-index:100;background:var(--ground);display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;text-align:center}
+.login-card .mark{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:38px;letter-spacing:.08em;text-transform:uppercase;color:var(--bone);line-height:1;margin-bottom:2px}
+.login-card .mark span{color:var(--teal)}
+.login-sub{color:var(--muted);font-size:13px;margin:0 0 8px}
+.login-card input{background:var(--ground2);border:1px solid var(--line);border-radius:8px;padding:11px 13px;color:var(--bone);font-family:'Inter',sans-serif;font-size:14px}
+.login-card input:focus{outline:none;border-color:var(--teal)}
+.login-card .btn{padding:11px;font-size:14px;margin-top:4px}
+.login-err{color:var(--coral);font-size:12.5px;min-height:16px}
+
 /* ---------- header ---------- */
 header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0E2B2E,#102F33)}
 .head-in{max-width:1240px;margin:0 auto;padding:26px 24px 22px;display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between}
 .brand{display:flex;align-items:baseline;gap:12px}
 .brand .mark{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:40px;letter-spacing:.08em;text-transform:uppercase;color:var(--bone);line-height:1}
 .brand .mark span{color:var(--teal)}
-.brand .sub{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+.head-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 h1{font-size:15px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.session{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+.session .lnk{background:none;border:none;color:var(--teal);cursor:pointer;font-size:12px;text-decoration:underline;font-family:'Inter',sans-serif;padding:0}
 
 /* ---------- dropzone ---------- */
 .drop{
@@ -54,20 +68,9 @@ h1{font-size:15px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted
 .drop .big{font-family:'Barlow Condensed',sans-serif;font-size:22px;letter-spacing:.02em}
 .drop .small{color:var(--muted);font-size:12.5px;margin-top:6px}
 input[type=file]{display:none}
-
-.files{margin-top:8px;display:flex;flex-direction:column;gap:6px}
-.files-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin-top:16px;background:var(--ground2);border:1px solid var(--line);border-radius:8px;padding:11px 14px;color:var(--bone);cursor:pointer;font-family:'Inter',sans-serif;font-size:12.5px;text-align:left}
-.files-toggle:hover{border-color:var(--teal)}
-.files-toggle:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
-.files-toggle .chev{transition:transform .15s;color:var(--muted);font-size:13px}
-.files-toggle[aria-expanded=true] .chev{transform:rotate(90deg)}
-.frow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--ground2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12.5px}
-.frow .fn{font-family:'IBM Plex Mono',monospace;color:var(--muted);flex:1;min-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.frow .cnt{color:var(--teal);font-family:'IBM Plex Mono',monospace}
-.frow select{background:var(--surface);color:var(--bone);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-family:'IBM Plex Mono',monospace;font-size:12px}
-.frow button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px}
-.frow button:hover{color:var(--coral)}
-.warn{color:var(--amber)}
+.status{margin-top:16px;font-size:12.5px;color:var(--muted);background:var(--ground2);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.status .ok{color:var(--teal);font-weight:600}
+.status .amber{color:var(--amber);font-weight:600}
 
 /* ---------- filters ---------- */
 .bar{position:sticky;top:0;z-index:20;background:rgba(14,43,46,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);margin-bottom:30px}
@@ -107,8 +110,6 @@ section{margin-bottom:42px}
 .tl-legend b{color:var(--bone);font-weight:600}
 .tl-stack{display:flex;width:100%;height:26px;border-radius:6px;overflow:hidden;margin-bottom:14px;border:1px solid var(--line)}
 .tl-stack .seg{height:100%;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#0B2225;font-weight:600;min-width:0;overflow:hidden;white-space:nowrap}
-.frow .per{font-family:'IBM Plex Mono',monospace;color:var(--bone);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:2px 9px;font-size:11.5px}
-.frow .per em{color:var(--muted);font-style:normal;font-size:10px;margin-left:5px;text-transform:uppercase;letter-spacing:.06em}
 svg{display:block;width:100%;overflow:visible}
 .axl{font-family:'IBM Plex Mono',monospace;font-size:10px;fill:var(--muted)}
 .gl{stroke:var(--line);stroke-width:1}
@@ -146,6 +147,7 @@ td.n{font-family:'IBM Plex Mono',monospace;text-align:right}
 .tblhead{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px}
 .btn{background:var(--teal);color:#0B2225;border:none;border-radius:7px;padding:7px 15px;font-weight:600;font-size:12.5px;cursor:pointer;font-family:'Inter',sans-serif}
 .btn:hover{filter:brightness(1.1)}
+.btn:disabled{opacity:.6;cursor:default}
 .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
 .btn.ghost:hover{border-color:var(--teal);color:var(--bone)}
 .btn:focus-visible{outline:2px solid var(--bone);outline-offset:2px}
@@ -155,24 +157,33 @@ td.n{font-family:'IBM Plex Mono',monospace;text-align:right}
 .hide{display:none!important}
 .note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6}
 .note b{color:var(--bone);font-weight:600}
-.mem{margin-top:14px;font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;background:var(--ground2);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
-.mem .ok{color:var(--teal);font-weight:600}
-.mem .amber{color:var(--amber);font-weight:600}
-.mem .lnk{background:none;border:none;color:var(--teal);cursor:pointer;font-size:12.5px;font-family:'Inter',sans-serif;text-decoration:underline;padding:0}
-.mem .lnk:hover{filter:brightness(1.15)}
-.mem .lnk.danger{color:var(--coral)}
 @media (max-width:820px){.grid2{grid-template-columns:1fr}.wrap{padding:0 16px 60px}.head-in,.bar-in{padding-left:16px;padding-right:16px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 
+<!-- ===== LOGIN ===== -->
+<div id="login" class="login-screen hide">
+  <div class="login-card">
+    <div class="mark">Radar de <span>fugas</span></div>
+    <p class="login-sub">Ingresá con tu cuenta del equipo</p>
+    <input type="email" id="email" placeholder="Email" autocomplete="username">
+    <input type="password" id="pass" placeholder="Contraseña" autocomplete="current-password">
+    <button type="button" class="btn" id="loginBtn">Entrar</button>
+    <div id="loginErr" class="login-err"></div>
+  </div>
+</div>
+
 <header>
   <div class="head-in">
     <div class="brand">
       <div class="mark">Radar de <span>fugas</span></div>
     </div>
-    <h1>Bajas · permanencia × días sin asistir</h1>
+    <div class="head-right">
+      <h1>Bajas · permanencia × días sin asistir</h1>
+      <div id="session" class="session hide"><span id="sesEmail" class="mono"></span><button id="logout" class="lnk">Salir</button></div>
+    </div>
   </div>
 </header>
 
@@ -180,19 +191,10 @@ td.n{font-family:'IBM Plex Mono',monospace;text-align:right}
 
   <div class="drop" id="drop" tabindex="0" role="button" aria-label="Cargar archivos CSV de bajas">
     <div class="big">Soltá acá los CSV de bajas</div>
-    <div class="small">Uno por sede y por mes · se procesan en tu navegador, no se suben a ningún servidor</div>
+    <div class="small">Uno por sede y por mes · se guardan en la base privada del equipo</div>
   </div>
   <input type="file" id="file" multiple accept=".csv,text/csv">
-  <div id="filesWrap" class="hide">
-    <button id="filesToggle" class="files-toggle" aria-expanded="false">
-      <span id="filesCount">Archivos cargados</span>
-      <span class="chev">▸</span>
-    </button>
-    <div class="files hide" id="files"></div>
-  </div>
-  <div id="dedup" class="note hide"></div>
-  <div id="mem" class="mem hide"></div>
-  <input type="file" id="backup" accept=".json,application/json">
+  <div id="status" class="status hide"></div>
 
   <div id="app" class="hide">
 
@@ -255,8 +257,9 @@ td.n{font-family:'IBM Plex Mono',monospace;text-align:right}
         <div class="tscroll"><table id="tbl"></table></div>
       </div>
       <p class="note">
-        <b>Cómo se calcula.</b> Días sin asistir = último día del período − Última Asistencia. El período se deduce del nombre del archivo (<span class="mono">Bajas_AAAAMMDD</span> → mes anterior) y lo podés corregir a mano arriba.
-        <b>Bajas DA:</b> el estado <span class="mono">bajas da</span> suele ser vencimiento automático de débito, no una cancelación pedida por el socio. Usá el filtro para ver el número con y sin ellas — la diferencia entre ambas lecturas es, en sí misma, un dato.
+        <b>Cómo se calcula.</b> Días sin asistir = último día del período − Última Asistencia. El período de cada archivo se detecta por su contenido: el mes más frecuente entre las fechas de baja (fechaStop para los DA, vencimiento para los normales).
+        <b>Bajas DA:</b> el estado <span class="mono">bajas da</span> suele ser vencimiento automático de débito, no una cancelación pedida por el socio. Usá el filtro Todas / Sin DA / Solo DA para leer el número con y sin ellas.
+        <b>Datos:</b> se guardan en la base privada del equipo — cada socio se cuenta una sola vez por sede y período.
       </p>
     </section>
 
@@ -265,6 +268,11 @@ td.n{font-family:'IBM Plex Mono',monospace;text-align:right}
 
 <script>
 "use strict";
+
+/* ============ config Supabase ============ */
+const SB_URL = "https://njjnzogylhrgndfoeqln.supabase.co";
+const SB_KEY = "sb_publishable_Ubi3oJmJV8-cxjBYeE7yaA_XaLjW6cX";
+let sb = null;
 
 /* ============ parsing ============ */
 function parseCSV(t){
@@ -305,6 +313,7 @@ const MES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','se
 const fmtKey=(y,m)=>y+'-'+String(m+1).padStart(2,'0');           // m = 0-indexed
 const fmtLabel=k=>{const[a,b]=k.split('-');return MES[+b-1]+' '+a.slice(2);};
 const corteDe=k=>{const[a,b]=k.split('-');return new Date(+a,+b,0);}; // último día del mes
+const fmtISO=d=>d?d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'):null;
 
 function sedeCorta(s){
   const n=norm(s);
@@ -316,12 +325,9 @@ function sedeCorta(s){
 }
 
 /* ============ estado ============ */
-const FILES=[];      // {name, key, rows:[raw], warn}
-let DATA=[];         // registros expandidos (ya deduplicados)
-let DUP=0;           // bajas duplicadas eliminadas en la última carga
+let DATA=[];         // registros (desde la base)
 const sel={sede:new Set(), mes:new Set(), da:'all', cell:null}; // da: all | noda | onlyda
 let sort={col:'dias',dir:-1};
-let filesOpen=false;   // lista de archivos colapsada por defecto
 
 const BP=[ {l:'menos de 1 mes',lo:0,hi:1},{l:'1 a 3 meses',lo:1,hi:3},{l:'3 a 6 meses',lo:3,hi:6},{l:'6 a 12 meses',lo:6,hi:12},{l:'más de 12 meses',lo:12,hi:1e9} ];
 const BI=[ {l:'0–30 días',lo:0,hi:30,c:'var(--teal)'},{l:'31–60',lo:31,hi:60,c:'var(--amber)'},{l:'61–90',lo:61,hi:90,c:'var(--coral)'},{l:'+90',lo:91,hi:1e9,c:'var(--deep)'} ];
@@ -329,26 +335,67 @@ const idxBP=v=>v==null?-1:BP.findIndex(b=>v>=b.lo&&v<b.hi);
 const idxBI=d=>d==null?-1:BI.findIndex(b=>d>=b.lo&&d<=b.hi);
 const colorDias=d=>d==null?'var(--line)':BI[idxBI(d)].c;
 
-/* ============ carga ============ */
 const $=id=>document.getElementById(id);
-const drop=$('drop'), fileInput=$('file');
 
-drop.addEventListener('click',()=>fileInput.click());
-drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fileInput.click();}});
-drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
-drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
-drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');cargar([...e.dataTransfer.files]);});
-fileInput.addEventListener('change',e=>cargar([...e.target.files]));
+/* ============ auth ============ */
+$('loginBtn').onclick=doLogin;
+$('email').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+$('pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+$('logout').onclick=async()=>{ try{await sb.auth.signOut();}catch(e){} location.reload(); };
 
+async function doLogin(){
+  const email=$('email').value.trim(), password=$('pass').value;
+  if(!email||!password){ $('loginErr').textContent='Completá email y contraseña.'; return; }
+  $('loginErr').textContent=''; $('loginBtn').textContent='Entrando…'; $('loginBtn').disabled=true;
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  $('loginBtn').textContent='Entrar'; $('loginBtn').disabled=false;
+  if(error){ $('loginErr').textContent=traducirError(error.message); return; }
+  mostrarApp(data.session);
+}
+function traducirError(m){
+  if(/invalid login/i.test(m)) return 'Email o contraseña incorrectos.';
+  if(/email not confirmed/i.test(m)) return 'Falta confirmar el email de este usuario (activá "Auto Confirm" en Supabase).';
+  return m;
+}
+function mostrarLogin(){ $('login').classList.remove('hide'); $('session').classList.add('hide'); }
+async function mostrarApp(session){
+  $('login').classList.add('hide');
+  $('session').classList.remove('hide');
+  $('sesEmail').textContent=session.user.email;
+  await loadFromDB();
+}
+
+/* ============ base de datos ============ */
+async function loadFromDB(){
+  setStatus('Cargando datos…');
+  const { data, error } = await sb.from('bajas').select('*');
+  if(error){ setStatus('Error al leer la base: '+error.message, true); return; }
+  DATA=(data||[]).map(filaADato);
+  $('status').classList.add('hide');
+  refrescar();
+}
+function filaADato(row){
+  const ult=row.ultima_asistencia?new Date(row.ultima_asistencia+'T00:00:00'):null;
+  const mes=row.periodo||'';
+  const corte=mes?corteDe(mes):null;
+  let dias=null;
+  if(ult&&corte){ dias=Math.round((corte-ult)/DAY); if(dias<0) dias=0; }
+  return {
+    sede:row.sede||'', nombre:row.nombre||'', dni:row.dni||'',
+    plan:row.plan||'', asesor:row.asesor||'', estado:row.estado||'',
+    perm:row.permanencia_meses==null?null:+row.permanencia_meses,
+    ult, mes, corte, dias, da:!!row.es_da
+  };
+}
+
+/* ============ período por contenido ============ */
 function periodoDeNombre(n){
   const m=n.match(/(\d{4})(\d{2})(\d{2})/);
   if(!m) return null;
-  let y=+m[1], mo=+m[2]-1;          // mes de exportación (0-idx)
-  mo-=1; if(mo<0){mo=11;y-=1;}      // el período es el mes anterior
+  let y=+m[1], mo=+m[2]-1;
+  mo-=1; if(mo<0){mo=11;y-=1;}
   return fmtKey(y,mo);
 }
-// Deduce el período por el CONTENIDO: mes más frecuente entre las fechas de baja.
-// La baja real es fechaStop (débitos automáticos) o vencimiento (socios normales).
 function periodoDeContenido(recs){
   const cnt={};
   recs.forEach(r=>{
@@ -359,22 +406,22 @@ function periodoDeContenido(recs){
   for(const k in cnt){ if(cnt[k]>bn){bn=cnt[k];best=k;} }
   return best;
 }
-function cargar(fs){
-  let pend=fs.length; if(!pend) return;
-  fs.forEach(f=>{
-    const r=new FileReader();
-    r.onload=()=>{
-      try{ ingerir(f.name, r.result); }catch(err){ console.error(err); }
-      if(--pend===0){ recomputar(); dbPersist(); }
-    };
-    r.onerror=()=>{ if(--pend===0) recomputar(); };
-    r.readAsText(f,'utf-8');
-  });
-}
-function ingerir(name,text){
-  const rows=parseCSV(text);
-  if(rows.length<2) return;
-  const H=rows[0].map(h=>norm(clean(h)));
+
+/* ============ carga de CSV → base ============ */
+const drop=$('drop'), fileInput=$('file');
+drop.addEventListener('click',()=>fileInput.click());
+drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fileInput.click();}});
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
+drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');cargar([...e.dataTransfer.files]);});
+fileInput.addEventListener('change',e=>{cargar([...e.target.files]);e.target.value='';});
+
+function leerTexto(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(r.error); r.readAsText(f,'utf-8'); }); }
+
+function parseArchivo(name,text){
+  const rowsCSV=parseCSV(text);
+  if(rowsCSV.length<2) return {key:null,rows:[]};
+  const H=rowsCSV[0].map(h=>norm(clean(h)));
   const at=(...alts)=>{ for(const a of alts){ const i=H.indexOf(a); if(i>=0) return i; } return -1; };
   const c={
     sede:at('sede'), nombre:at('nombre'), dni:at('dni'), plan:at('plan'),
@@ -382,98 +429,73 @@ function ingerir(name,text){
     asesor:at('asesor'), estado:at('estado'), perm:at('permanenciameses')
   };
   const recs=[];
-  for(let i=1;i<rows.length;i++){
-    const r=rows[i];
+  for(let i=1;i<rowsCSV.length;i++){
+    const r=rowsCSV[i];
     if(!r||r.length<3) continue;
     const nombre=clean(r[c.nombre]||'');
     if(!nombre) continue;
     recs.push({
-      sede:sedeCorta(r[c.sede]||''),
-      nombre, dni:clean(r[c.dni]||''),
-      plan:clean(r[c.plan]||''),
-      asesor:clean(r[c.asesor]||''),
-      estado:clean(r[c.estado]||''),
+      sede:sedeCorta(r[c.sede]||''), nombre, dni:clean(r[c.dni]||''),
+      plan:clean(r[c.plan]||''), asesor:clean(r[c.asesor]||''), estado:clean(r[c.estado]||''),
       perm:(()=>{const v=parseFloat(clean(r[c.perm]||'').replace(',','.'));return isNaN(v)?null:v;})(),
-      ult:parseDate(r[c.ult]||''),
-      stop:parseDate(r[c.stop]||''),
-      venc:parseDate(r[c.venc]||'')
+      ult:parseDate(r[c.ult]||''), stop:parseDate(r[c.stop]||''), venc:parseDate(r[c.venc]||'')
     });
   }
-  // período: primero por contenido (fecha de baja), luego por nombre, luego mes actual
-  let key=periodoDeContenido(recs), method='contenido';
-  if(!key){ key=periodoDeNombre(name); method='nombre'; }
-  if(!key){ key=fmtKey(new Date().getFullYear(),new Date().getMonth()); method='sin fecha'; }
-  const rec={name,key,recs,method,warn:c.ult<0||c.perm<0,text};
-  const ix=FILES.findIndex(f=>f.name===name);
-  if(ix>=0) FILES[ix]=rec; else FILES.push(rec);
+  let key=periodoDeContenido(recs);
+  if(!key) key=periodoDeNombre(name);
+  if(!key) key=fmtKey(new Date().getFullYear(),new Date().getMonth());
+  const rows=recs.map(r=>({
+    sede:r.sede, nombre:r.nombre, dni:r.dni||'',
+    plan:r.plan||'', asesor:r.asesor||'', estado:r.estado||'',
+    permanencia_meses:r.perm, ultima_asistencia:fmtISO(r.ult),
+    fecha_stop:fmtISO(r.stop), vencimiento:fmtISO(r.venc),
+    periodo:key, es_da:norm(r.estado).includes('da')
+  }));
+  return {key,rows};
 }
 
-/* ============ recompute ============ */
-function recomputar(){
-  // 1) expandir todos los registros crudos
-  const raw=[];
-  FILES.forEach(f=>{
-    const corte=corteDe(f.key);
-    f.recs.forEach(r=>{
-      let dias=null;
-      if(r.ult){ dias=Math.round((corte-r.ult)/DAY); if(dias<0) dias=0; }
-      raw.push(Object.assign({},r,{mes:f.key,corte,dias,da:norm(r.estado).includes('da')}));
-    });
-  });
-  // 2) deduplicar: un socio único por sede + período.
-  //    clave = DNI (si existe) o nombre normalizado. Ante duplicado, se queda
-  //    el registro más completo (con última asistencia y/o permanencia).
-  const seen=new Map(); DUP=0;
-  const score=r=>(r.ult?2:0)+(r.perm!=null?1:0);
-  raw.forEach(r=>{
-    const id=norm(r.dni)||norm(r.nombre);
-    if(!id){ seen.set('__x'+seen.size, r); return; } // sin identificador: no se toca
-    const k=r.sede+'|'+r.mes+'|'+id;
+async function cargar(fs){
+  fs=[...fs]; if(!fs.length) return;
+  setStatus('Procesando '+fs.length+' archivo'+(fs.length===1?'':'s')+'…');
+  let filas=[];
+  for(const f of fs){
+    try{ const text=await leerTexto(f); filas=filas.concat(parseArchivo(f.name,text).rows); }
+    catch(err){ console.error(err); }
+  }
+  // dedup dentro del lote (clave sede|periodo|dni|nombre), se queda el más completo
+  const seen=new Map();
+  const score=x=>(x.ultima_asistencia?2:0)+(x.permanencia_meses!=null?1:0);
+  filas.forEach(r=>{
+    const k=r.sede+'|'+r.periodo+'|'+r.dni+'|'+norm(r.nombre);
     const prev=seen.get(k);
-    if(!prev){ seen.set(k,r); }
-    else{ DUP++; if(score(r)>score(prev)) seen.set(k,r); }
+    if(!prev||score(r)>score(prev)) seen.set(k,r);
   });
-  DATA=[...seen.values()];
-  // 3) aviso de duplicados
-  const dd=$('dedup');
-  if(DUP>0){
-    dd.classList.remove('hide');
-    dd.innerHTML='<b>'+DUP+' baja'+(DUP===1?'':'s')+' duplicada'+(DUP===1?'':'s')+' eliminada'+(DUP===1?'':'s')+'.</b> '
-      +'Se contó cada socio una sola vez por sede y período (clave: DNI, o nombre si falta el DNI). '
-      +DATA.length+' socios únicos en total.';
-  } else { dd.classList.add('hide'); dd.innerHTML=''; }
+  const rows=[...seen.values()];
+  if(!rows.length){ setStatus('No encontré bajas en esos archivos.', true); return; }
+  setStatus('Guardando '+rows.length+' bajas en la base…');
+  const { error } = await sb.from('bajas').upsert(rows,{ onConflict:'sede,periodo,dni,nombre' });
+  if(error){ setStatus('Error al guardar: '+error.message, true); return; }
+  await loadFromDB();
+  const per=[...new Set(rows.map(r=>fmtLabel(r.periodo)))].join(', ');
+  setStatus(rows.length+' bajas cargadas ('+per+'). Total en la base: '+DATA.length+' socios.');
+}
+
+function setStatus(msg, err){
+  const el=$('status'); el.classList.remove('hide');
+  el.innerHTML=(err?'<span class="amber">●</span> ':'<span class="ok">●</span> ')+esc(msg);
+}
+
+/* ============ refresco / filtros ============ */
+function refrescar(){
   const sedes=[...new Set(DATA.map(d=>d.sede))].sort();
   const meses=[...new Set(DATA.map(d=>d.mes))].sort();
   if(!sel.sede.size) sedes.forEach(s=>sel.sede.add(s));
   if(!sel.mes.size) meses.forEach(m=>sel.mes.add(m));
   [...sel.sede].forEach(s=>{if(!sedes.includes(s))sel.sede.delete(s)});
   [...sel.mes].forEach(m=>{if(!meses.includes(m))sel.mes.delete(m)});
-  renderFiles(); renderChips(sedes,meses); renderMem();
+  renderChips(sedes,meses);
   $('app').classList.toggle('hide',!DATA.length);
   if(DATA.length) render();
-}
-function renderFiles(){
-  const el=$('files'); el.innerHTML='';
-  const metodo={contenido:'detectado',nombre:'del nombre','sin fecha':'sin fecha'};
-  FILES.forEach((f,i)=>{
-    const div=document.createElement('div'); div.className='frow';
-    div.innerHTML='<span class="fn">'+f.name+'</span>'
-      +'<span class="cnt">'+f.recs.length+' bajas</span>'
-      +(f.warn?'<span class="warn">faltan columnas</span>':'')
-      +'<span class="per">'+fmtLabel(f.key)+'<em>'+(metodo[f.method]||'')+'</em></span>'
-      +'<button title="Quitar">✕</button>';
-    div.querySelector('button').onclick=()=>{FILES.splice(i,1);recomputar();dbPersist();};
-    el.appendChild(div);
-  });
-  // encabezado colapsable
-  const wrap=$('filesWrap'), tog=$('filesToggle');
-  wrap.classList.toggle('hide',!FILES.length);
-  $('filesCount').textContent=FILES.length+' archivo'+(FILES.length===1?'':'s')+' cargado'+(FILES.length===1?'':'s');
-  if(FILES.length){
-    el.classList.toggle('hide',!filesOpen);
-    tog.setAttribute('aria-expanded',filesOpen);
-    tog.onclick=()=>{ filesOpen=!filesOpen; el.classList.toggle('hide',!filesOpen); tog.setAttribute('aria-expanded',filesOpen); };
-  }
 }
 function renderChips(sedes,meses){
   const mk=(host,vals,set,lab)=>{
@@ -481,7 +503,7 @@ function renderChips(sedes,meses){
     vals.forEach(v=>{
       const b=document.createElement('button'); b.className='chip';
       b.textContent=lab?lab(v):v; b.setAttribute('aria-pressed',set.has(v));
-      b.onclick=()=>{ set.has(v)?set.delete(v):set.add(v); if(!set.size) set.add(v); sel.cell=null; recomputar(); };
+      b.onclick=()=>{ set.has(v)?set.delete(v):set.add(v); if(!set.size) set.add(v); sel.cell=null; refrescar(); };
       host.appendChild(b);
     });
   };
@@ -491,7 +513,7 @@ function renderChips(sedes,meses){
   [['all','Todas'],['noda','Sin DA'],['onlyda','Solo DA']].forEach(([v,l])=>{
     const b=document.createElement('button'); b.className='chip';
     b.textContent=l; b.setAttribute('aria-pressed',sel.da===v);
-    b.onclick=()=>{ sel.da=v; sel.cell=null; recomputar(); };
+    b.onclick=()=>{ sel.da=v; sel.cell=null; refrescar(); };
     daHost.appendChild(b);
   });
 }
@@ -544,7 +566,6 @@ function barras(host,items,total,fixed){
 }
 function timeline(D){
   const host=$('tl');
-  // franjas + % sobre el total de bajas del filtro (incluye las sin registro)
   const tot=D.length;
   const cats=[
     {l:'0–30 días',c:'var(--teal)', n:D.filter(d=>d.dias!=null&&d.dias<=30).length},
@@ -554,12 +575,10 @@ function timeline(D){
     {l:'sin registro',c:'var(--line)',n:D.filter(d=>d.dias==null).length}
   ];
   const pc=n=>tot?Math.round(n/tot*100):0;
-  // barra apilada 100%
   $('tlStack').innerHTML=cats.filter(x=>x.n>0).map(x=>{
     const p=x.n/tot*100, lbl=p>=8?pc(x.n)+'%':'';
     return '<div class="seg" style="width:'+p+'%;background:'+x.c+'" title="'+x.l+': '+x.n+' ('+pc(x.n)+'%)">'+lbl+'</div>';
   }).join('');
-  // leyenda con conteo y %
   $('tlLegend').innerHTML=cats.map(x=>
     '<span><i style="background:'+x.c+'"></i>'+x.l+' · <b>'+pc(x.n)+'%</b> <span style="opacity:.7">('+x.n+')</span></span>'
   ).join('');
@@ -638,103 +657,28 @@ $('clearCell').onclick=()=>{sel.cell=null;render();};
 $('exp').onclick=()=>{
   const D=filtrado();
   const head=['Socio','DNI','Sede','Periodo','Corte','Ultima asistencia','Dias sin venir','Permanencia meses','Plan','Asesor','Estado'];
-  const iso=d=>d?d.toISOString().slice(0,10):'';
+  const iso=d=>d?fmtISO(d):'';
   const body=D.map(r=>[r.nombre,r.dni,r.sede,r.mes,iso(r.corte),iso(r.ult),r.dias==null?'':r.dias,r.perm==null?'':r.perm,r.plan,r.asesor,r.estado]);
   const csv=[head,...body].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
   a.download='nomade_bajas_fuga.csv'; a.click();
 };
-/* ============ memoria local (IndexedDB) ============ */
-const DB_NAME='nomade_radar', DB_STORE='kv';
-let MEM_OK=false;
-function dbOpen(){
-  return new Promise((res,rej)=>{
-    let q;
-    try{ q=indexedDB.open(DB_NAME,1); }catch(e){ return rej(e); }
-    q.onupgradeneeded=()=>{ q.result.createObjectStore(DB_STORE); };
-    q.onsuccess=()=>res(q.result);
-    q.onerror=()=>rej(q.error);
-  });
-}
-async function dbSet(key,val){
-  const db=await dbOpen();
-  return new Promise((res,rej)=>{
-    const tx=db.transaction(DB_STORE,'readwrite');
-    tx.objectStore(DB_STORE).put(val,key);
-    tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error);
-  });
-}
-async function dbGet(key){
-  const db=await dbOpen();
-  return new Promise((res,rej)=>{
-    const tx=db.transaction(DB_STORE,'readonly');
-    const r=tx.objectStore(DB_STORE).get(key);
-    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
-  });
-}
-function snapshot(){ return FILES.map(f=>({name:f.name,text:f.text})); }
-function dbPersist(){ if(MEM_OK) dbSet('files',snapshot()).catch(e=>console.warn('persist',e)); }
-async function dbLoad(){
-  try{
-    const saved=await dbGet('files');
-    if(saved && saved.length){
-      saved.forEach(s=>{ try{ if(s.name&&s.text) ingerir(s.name,s.text); }catch(e){} });
-      recomputar();
-    }
-  }catch(e){ console.warn('load',e); }
-}
-async function memClear(){
-  if(!confirm('¿Vaciar la memoria? Se borran todos los meses guardados en este navegador. (Podés recuperarlos si tenés un respaldo exportado.)')) return;
-  FILES.length=0;
-  try{ await dbSet('files',[]); }catch(e){}
-  recomputar();
-}
-function exportBackup(){
-  const data=JSON.stringify({v:1,fecha:new Date().toISOString(),files:snapshot()});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
-  a.download='nomade_radar_respaldo.json'; a.click();
-}
-function importBackup(file){
-  const r=new FileReader();
-  r.onload=()=>{
-    try{
-      const obj=JSON.parse(r.result);
-      const arr=Array.isArray(obj)?obj:(obj.files||[]);
-      let k=0;
-      arr.forEach(s=>{ if(s.name&&s.text){ ingerir(s.name,s.text); k++; } });
-      recomputar(); dbPersist();
-      if(!k) alert('El respaldo no tenía archivos válidos.');
-    }catch(e){ alert('No pude leer el respaldo. ¿Es el JSON correcto?'); }
-  };
-  r.readAsText(file,'utf-8');
-}
-function renderMem(){
-  const el=$('mem'); el.classList.remove('hide');
-  if(!MEM_OK){
-    el.innerHTML='<span class="amber">● Memoria local no disponible en esta vista.</span> '
-      +'Descargá este archivo y abrilo desde tu compu (doble clic) para que los meses queden guardados y se vayan acumulando.';
+
+/* ============ arranque ============ */
+(async function init(){
+  if(typeof supabase==='undefined'){
+    mostrarLogin();
+    $('loginErr').textContent='No se pudo cargar la librería (revisá tu conexión).';
     return;
   }
-  el.innerHTML='<span class="ok">● Memoria local activa</span> '
-    +'<span>'+FILES.length+' archivo'+(FILES.length===1?'':'s')+' guardado'+(FILES.length===1?'':'s')+' en este navegador · se acumulan solos</span>'
-    +'<button class="lnk" id="mExp">Exportar respaldo</button>'
-    +'<button class="lnk" id="mImp">Importar respaldo</button>'
-    +'<button class="lnk danger" id="mClr">Vaciar memoria</button>';
-  $('mExp').onclick=exportBackup;
-  $('mImp').onclick=()=>$('backup').click();
-  $('mClr').onclick=memClear;
-}
-$('backup').addEventListener('change',e=>{ if(e.target.files[0]) importBackup(e.target.files[0]); e.target.value=''; });
-
-/* arranque: detecta memoria, restaura lo guardado */
-(async function init(){
-  try{ await dbOpen(); MEM_OK=true; }catch(e){ MEM_OK=false; }
-  await dbLoad();
-  renderMem();
+  sb=supabase.createClient(SB_URL,SB_KEY);
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(session) mostrarApp(session); else mostrarLogin();
+  }catch(e){ console.error(e); mostrarLogin(); }
+  sb.auth.onAuthStateChange((_ev,session)=>{ if(!session) mostrarLogin(); });
 })();
-
 </script>
 </body>
 </html>
