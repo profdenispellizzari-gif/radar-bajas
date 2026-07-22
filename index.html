@@ -690,7 +690,8 @@ $('exp').onclick=()=>{
     $('logout').classList.remove('hide');
     $('drop').classList.remove('hide');
   } else {
-    $('openLogin').classList.remove('hide');
+    // botón de acceso del equipo: sólo visible si la URL termina en #equipo
+    if((location.hash||'').toLowerCase().includes('equipo')) $('openLogin').classList.remove('hide');
   }
   await loadFromDB();
 })();
