@@ -392,9 +392,16 @@ function traducirError(m){
 async function loadFromDB(){
   setStatus('Cargando datos…');
   const fuente = ADMIN ? 'bajas' : 'bajas_publica';
-  const { data, error } = await sb.from(fuente).select('*');
-  if(error){ setStatus('Error al leer la base: '+error.message, true); return; }
-  DATA=(data||[]).map(filaADato);
+  const PAG=1000; let desde=0, todas=[];
+  while(true){
+    const { data, error } = await sb.from(fuente).select('*').order('id').range(desde, desde+PAG-1);
+    if(error){ setStatus('Error al leer la base: '+error.message, true); return; }
+    todas=todas.concat(data||[]);
+    if(!data || data.length<PAG) break;   // última página
+    desde+=PAG;
+    if(desde>200000) break;               // tope de seguridad
+  }
+  DATA=todas.map(filaADato);
   $('status').classList.add('hide');
   refrescar();
 }
