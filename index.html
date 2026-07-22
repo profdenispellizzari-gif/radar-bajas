@@ -698,7 +698,9 @@ $('exp').onclick=()=>{
     $('logout').classList.remove('hide');
     $('drop').classList.remove('hide');
   } else {
-    // botón de acceso del equipo: sólo visible si la URL termina en #equipo
+    // acceso del equipo: DOBLE CLIC en el título "Radar de fugas" (o URL con #equipo)
+    const abrir=()=>{ $('login').classList.remove('hide'); $('email').focus(); };
+    const marca=document.querySelector('.brand'); if(marca){ marca.style.cursor='default'; marca.addEventListener('dblclick',abrir); }
     if((location.hash||'').toLowerCase().includes('equipo')) $('openLogin').classList.remove('hide');
   }
   await loadFromDB();
