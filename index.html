@@ -534,22 +534,24 @@ async function cargar(fs){
     if(!prev || r.periodo<prev.periodo) seen.set(r.dedup_key,r);
   });
   const rows=[...seen.values()];
-  const detalle=rep.map(r=>(r.n?'✓ ':'⚠ ')+esc(r.name)+': '+r.n+' bajas'
-    +(r.n?' ('+esc(r.info)+')':'')
+  // solo mostramos el detalle de los archivos con algún problema (0 bajas, columna faltante o error)
+  const problemas=rep.filter(r=>!r.n||r.falta||r.err);
+  const detalle=problemas.map(r=>'⚠ '+esc(r.name)+': '+r.n+' bajas'
     +(r.falta?' — no encontré la columna "'+r.falta+'"':'')
     +(r.err?' — no se pudo leer':'')).join('<br>');
-  if(!rows.length){ setStatus('No encontré bajas para cargar.<br>'+detalle, true); return; }
+  const colita = detalle ? '<br>'+detalle : '';
+  if(!rows.length){ setStatus('No encontré bajas para cargar.'+colita, true); return; }
   setStatus('Guardando '+rows.length+' bajas…');
   // upsert en tandas (por si algún archivo es grande)
   const CH=500; let subidas=0;
   for(let i=0;i<rows.length;i+=CH){
     const lote=rows.slice(i,i+CH);
     const { error } = await sb.from('bajas').upsert(lote,{ onConflict:'dedup_key' });
-    if(error){ setStatus('Error al guardar: '+error.message+'<br>'+detalle, true); return; }
+    if(error){ setStatus('Error al guardar: '+error.message+colita, true); return; }
     subidas+=lote.length;
   }
   await loadFromDB();
-  setStatus(subidas+' bajas cargadas. Total en la base: '+DATA.length+' socios.<br>'+detalle);
+  setStatus(subidas+' bajas cargadas. Total en la base: '+DATA.length+' socios.'+colita);
 }
 
 function setStatus(msg, err){
