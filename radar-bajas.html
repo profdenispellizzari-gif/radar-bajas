@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nómade · Radar de fugas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#0E2B2E;
+  --ground2:#14383C;
+  --surface:#1B474C;
+  --line:#27585E;
+  --bone:#F2EDE4;
+  --muted:#8FAEAF;
+  --teal:#4FD1C5;
+  --amber:#E9A23B;
+  --coral:#E8614D;
+  --deep:#B23A2C;
+  --r:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ground);
+  color:var(--bone);
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,.disp{font-family:'Barlow Condensed','Inter',sans-serif;font-weight:600;letter-spacing:.01em;margin:0}
+.mono{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1240px;margin:0 auto;padding:0 24px 80px}
+
+/* ---------- header ---------- */
+header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0E2B2E,#102F33)}
+.head-in{max-width:1240px;margin:0 auto;padding:26px 24px 22px;display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between}
+.brand{display:flex;align-items:baseline;gap:12px}
+.brand .mark{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:40px;letter-spacing:.08em;text-transform:uppercase;color:var(--bone);line-height:1}
+.brand .mark span{color:var(--teal)}
+.brand .sub{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:15px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);font-weight:500}
+
+/* ---------- dropzone ---------- */
+.drop{
+  margin-top:26px;border:1.5px dashed var(--line);border-radius:var(--r);
+  padding:30px 24px;text-align:center;transition:border-color .15s,background .15s;cursor:pointer;
+}
+.drop:hover,.drop.over{border-color:var(--teal);background:rgba(79,209,197,.05)}
+.drop:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
+.drop .big{font-family:'Barlow Condensed',sans-serif;font-size:22px;letter-spacing:.02em}
+.drop .small{color:var(--muted);font-size:12.5px;margin-top:6px}
+input[type=file]{display:none}
+
+.files{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.files-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin-top:16px;background:var(--ground2);border:1px solid var(--line);border-radius:8px;padding:11px 14px;color:var(--bone);cursor:pointer;font-family:'Inter',sans-serif;font-size:12.5px;text-align:left}
+.files-toggle:hover{border-color:var(--teal)}
+.files-toggle:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.files-toggle .chev{transition:transform .15s;color:var(--muted);font-size:13px}
+.files-toggle[aria-expanded=true] .chev{transform:rotate(90deg)}
+.frow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--ground2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12.5px}
+.frow .fn{font-family:'IBM Plex Mono',monospace;color:var(--muted);flex:1;min-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.frow .cnt{color:var(--teal);font-family:'IBM Plex Mono',monospace}
+.frow select{background:var(--surface);color:var(--bone);border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-family:'IBM Plex Mono',monospace;font-size:12px}
+.frow button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px}
+.frow button:hover{color:var(--coral)}
+.warn{color:var(--amber)}
+
+/* ---------- filters ---------- */
+.bar{position:sticky;top:0;z-index:20;background:rgba(14,43,46,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);margin-bottom:30px}
+.bar-in{max-width:1240px;margin:0 auto;padding:12px 24px;display:flex;flex-wrap:wrap;gap:18px;align-items:center}
+.fgroup{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.flabel{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+.chip{
+  background:transparent;border:1px solid var(--line);color:var(--muted);
+  border-radius:999px;padding:4px 12px;font-size:12.5px;cursor:pointer;font-family:'Inter',sans-serif;
+  transition:all .12s;
+}
+.chip:hover{border-color:var(--teal);color:var(--bone)}
+.chip[aria-pressed=true]{background:var(--teal);border-color:var(--teal);color:#0B2225;font-weight:600}
+.chip:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+
+/* ---------- sections ---------- */
+section{margin-bottom:42px}
+.stitle{display:flex;align-items:baseline;gap:12px;margin-bottom:4px}
+.stitle h2{font-size:23px}
+.stitle .num{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--teal);letter-spacing:.1em}
+.sdesc{color:var(--muted);font-size:13px;max-width:66ch;margin-bottom:18px}
+
+/* ---------- kpis ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.kpi{background:var(--ground2);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+.kpi .k{font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.kpi .v{font-family:'Barlow Condensed',sans-serif;font-size:40px;line-height:1.05;margin-top:6px}
+.kpi .u{font-size:15px;color:var(--muted);margin-left:3px}
+.kpi .h{font-size:11.5px;color:var(--muted);margin-top:5px}
+.kpi.alert{border-color:rgba(232,97,77,.5);background:linear-gradient(180deg,rgba(232,97,77,.10),rgba(232,97,77,.03))}
+.kpi.alert .v{color:var(--coral)}
+
+/* ---------- timeline (signature) ---------- */
+.tl-wrap{background:var(--ground2);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px 14px}
+.tl-legend{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px;font-size:12px;color:var(--muted)}
+.tl-legend i{display:inline-block;width:22px;height:7px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.tl-legend b{color:var(--bone);font-weight:600}
+.tl-stack{display:flex;width:100%;height:26px;border-radius:6px;overflow:hidden;margin-bottom:14px;border:1px solid var(--line)}
+.tl-stack .seg{height:100%;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#0B2225;font-weight:600;min-width:0;overflow:hidden;white-space:nowrap}
+.frow .per{font-family:'IBM Plex Mono',monospace;color:var(--bone);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:2px 9px;font-size:11.5px}
+.frow .per em{color:var(--muted);font-style:normal;font-size:10px;margin-left:5px;text-transform:uppercase;letter-spacing:.06em}
+svg{display:block;width:100%;overflow:visible}
+.axl{font-family:'IBM Plex Mono',monospace;font-size:10px;fill:var(--muted)}
+.gl{stroke:var(--line);stroke-width:1}
+
+/* ---------- bars ---------- */
+.panel{background:var(--ground2);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.brow{display:grid;grid-template-columns:110px 1fr 78px;gap:12px;align-items:center;margin-bottom:9px}
+.brow .bl{font-size:12.5px;color:var(--muted);text-align:right}
+.btrack{background:var(--ground);border-radius:4px;height:22px;overflow:hidden}
+.bfill{height:100%;border-radius:4px;transition:width .4s cubic-bezier(.2,.7,.3,1)}
+.brow .bv{font-family:'IBM Plex Mono',monospace;font-size:12.5px}
+.brow .bv em{color:var(--muted);font-style:normal;font-size:11px}
+
+/* ---------- matrix ---------- */
+.mx{display:grid;gap:4px;font-family:'IBM Plex Mono',monospace;font-size:12.5px}
+.mx .hd{color:var(--muted);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;padding-bottom:2px}
+.mx .rh{color:var(--muted);font-size:11.5px;text-align:right;padding-right:8px;display:flex;align-items:center;justify-content:flex-end}
+.cell{border-radius:6px;padding:14px 6px;text-align:center;cursor:pointer;border:1px solid transparent;transition:transform .1s}
+.cell:hover{transform:translateY(-2px);border-color:var(--bone)}
+.cell[aria-pressed=true]{border-color:var(--bone)}
+.cell:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+
+/* ---------- table ---------- */
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{
+  text-align:left;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  font-weight:500;padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap;user-select:none;
+}
+th:hover{color:var(--teal)}
+td{padding:8px 10px;border-bottom:1px solid rgba(39,88,94,.45)}
+tbody tr:hover{background:rgba(79,209,197,.05)}
+td.n{font-family:'IBM Plex Mono',monospace;text-align:right}
+.tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-family:'IBM Plex Mono',monospace}
+.tblhead{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.btn{background:var(--teal);color:#0B2225;border:none;border-radius:7px;padding:7px 15px;font-weight:600;font-size:12.5px;cursor:pointer;font-family:'Inter',sans-serif}
+.btn:hover{filter:brightness(1.1)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.btn.ghost:hover{border-color:var(--teal);color:var(--bone)}
+.btn:focus-visible{outline:2px solid var(--bone);outline-offset:2px}
+.tscroll{max-height:560px;overflow:auto}
+
+.empty{color:var(--muted);text-align:center;padding:60px 20px;font-size:14px}
+.hide{display:none!important}
+.note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6}
+.note b{color:var(--bone);font-weight:600}
+.mem{margin-top:14px;font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;background:var(--ground2);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.mem .ok{color:var(--teal);font-weight:600}
+.mem .amber{color:var(--amber);font-weight:600}
+.mem .lnk{background:none;border:none;color:var(--teal);cursor:pointer;font-size:12.5px;font-family:'Inter',sans-serif;text-decoration:underline;padding:0}
+.mem .lnk:hover{filter:brightness(1.15)}
+.mem .lnk.danger{color:var(--coral)}
+@media (max-width:820px){.grid2{grid-template-columns:1fr}.wrap{padding:0 16px 60px}.head-in,.bar-in{padding-left:16px;padding-right:16px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-in">
+    <div class="brand">
+      <div class="mark">Radar de <span>fugas</span></div>
+    </div>
+    <h1>Bajas · permanencia × días sin asistir</h1>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Cargar archivos CSV de bajas">
+    <div class="big">Soltá acá los CSV de bajas</div>
+    <div class="small">Uno por sede y por mes · se procesan en tu navegador, no se suben a ningún servidor</div>
+  </div>
+  <input type="file" id="file" multiple accept=".csv,text/csv">
+  <div id="filesWrap" class="hide">
+    <button id="filesToggle" class="files-toggle" aria-expanded="false">
+      <span id="filesCount">Archivos cargados</span>
+      <span class="chev">▸</span>
+    </button>
+    <div class="files hide" id="files"></div>
+  </div>
+  <div id="dedup" class="note hide"></div>
+  <div id="mem" class="mem hide"></div>
+  <input type="file" id="backup" accept=".json,application/json">
+
+  <div id="app" class="hide">
+
+    <div class="bar">
+      <div class="bar-in">
+        <div class="fgroup"><span class="flabel">Sede</span><span id="fSede"></span></div>
+        <div class="fgroup"><span class="flabel">Período</span><span id="fMes"></span></div>
+        <div class="fgroup"><span class="flabel">Bajas DA</span><span id="fDA"></span></div>
+      </div>
+    </div>
+
+    <section>
+      <div class="stitle"><span class="num">01</span><h2>El daño</h2></div>
+      <p class="sdesc">Todo se mide contra el último día del período, no contra la fecha de exportación. Así los meses son comparables entre sí.</p>
+      <div class="kpis" id="kpis"></div>
+    </section>
+
+    <section>
+      <div class="stitle"><span class="num">02</span><h2>Cuánto tiempo estuvieron apagados</h2></div>
+      <p class="sdesc">Cada línea es un socio dado de baja. Arranca el día de su última asistencia y termina en el cierre del período. Cuanto más larga, más tiempo estuvo la fuga a la vista sin que nadie la levantara.</p>
+      <div class="tl-wrap">
+        <div id="tlStack" class="tl-stack"></div>
+        <div class="tl-legend" id="tlLegend"></div>
+        <div id="tl"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="stitle"><span class="num">03</span><h2>Distribuciones</h2></div>
+      <p class="sdesc">A la izquierda, cuánto duró el socio antes de irse. A la derecha, cuánto hacía que no venía al cierre del período.</p>
+      <div class="grid2">
+        <div class="panel">
+          <div class="flabel" style="margin-bottom:14px">Permanencia al momento de la baja</div>
+          <div id="barPerm"></div>
+        </div>
+        <div class="panel">
+          <div class="flabel" style="margin-bottom:14px">Días sin asistir al cierre del período</div>
+          <div id="barInact"></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="stitle"><span class="num">04</span><h2>Matriz de cruce</h2></div>
+      <p class="sdesc">Permanencia contra inactividad. El cuadrante de arriba a la derecha —socio nuevo que se apagó y nadie fue a buscarlo— es fallo de onboarding. El de abajo a la derecha es fatiga de propuesta. Tocá una celda para filtrar la lista.</p>
+      <div class="panel"><div class="mx" id="mx"></div></div>
+    </section>
+
+    <section>
+      <div class="stitle"><span class="num">05</span><h2>Lista</h2></div>
+      <p class="sdesc">Ordenada por días sin asistir. Clic en cualquier encabezado para reordenar.</p>
+      <div class="panel">
+        <div class="tblhead">
+          <div id="tcount" class="mono" style="color:var(--muted);font-size:12.5px"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn ghost hide" id="clearCell">Quitar filtro de celda</button>
+            <button class="btn" id="exp">Descargar CSV filtrado</button>
+          </div>
+        </div>
+        <div class="tscroll"><table id="tbl"></table></div>
+      </div>
+      <p class="note">
+        <b>Cómo se calcula.</b> Días sin asistir = último día del período − Última Asistencia. El período se deduce del nombre del archivo (<span class="mono">Bajas_AAAAMMDD</span> → mes anterior) y lo podés corregir a mano arriba.
+        <b>Bajas DA:</b> el estado <span class="mono">bajas da</span> suele ser vencimiento automático de débito, no una cancelación pedida por el socio. Usá el filtro para ver el número con y sin ellas — la diferencia entre ambas lecturas es, en sí misma, un dato.
+      </p>
+    </section>
+
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ============ parsing ============ */
+function parseCSV(t){
+  if(t.charCodeAt(0)===0xFEFF) t=t.slice(1);
+  const rows=[]; let row=[], f='', i=0, q=false;
+  while(i<t.length){
+    const c=t[i];
+    if(q){
+      if(c==='"'){ if(t[i+1]==='"'){f+='"';i+=2;continue;} q=false;i++;continue; }
+      f+=c;i++;continue;
+    }
+    if(c==='"'&&f===''){q=true;i++;continue;}
+    if(c===';'){row.push(f);f='';i++;continue;}
+    if(c==='\r'){i++;continue;}
+    if(c==='\n'){row.push(f);rows.push(row);row=[];f='';i++;continue;}
+    f+=c;i++;
+  }
+  if(f!==''||row.length){row.push(f);rows.push(row);}
+  return rows;
+}
+const norm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+function clean(v){
+  v=(v||'').trim();
+  if(v.startsWith('=')) v=v.slice(1).trim();
+  if(v.startsWith('"')&&v.endsWith('"')&&v.length>1) v=v.slice(1,-1);
+  return v.trim();
+}
+function parseDate(v){
+  v=clean(v); if(!v) return null;
+  let m=v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  m=v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+  return null;
+}
+const DAY=864e5;
+const MES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const fmtKey=(y,m)=>y+'-'+String(m+1).padStart(2,'0');           // m = 0-indexed
+const fmtLabel=k=>{const[a,b]=k.split('-');return MES[+b-1]+' '+a.slice(2);};
+const corteDe=k=>{const[a,b]=k.split('-');return new Date(+a,+b,0);}; // último día del mes
+
+function sedeCorta(s){
+  const n=norm(s);
+  if(n.includes('washington')||n.includes('gimnasia')) return 'Gimnasia';
+  if(n.includes('anzorena')||n.includes('suipacha')) return 'Anzorena';
+  if(n.includes('mtc')) return 'MTC';
+  if(n.includes('totem')) return 'Tótem';
+  return clean(s).replace(/^NOMADE\s+/i,'') || '—';
+}
+
+/* ============ estado ============ */
+const FILES=[];      // {name, key, rows:[raw], warn}
+let DATA=[];         // registros expandidos (ya deduplicados)
+let DUP=0;           // bajas duplicadas eliminadas en la última carga
+const sel={sede:new Set(), mes:new Set(), da:'all', cell:null}; // da: all | noda | onlyda
+let sort={col:'dias',dir:-1};
+let filesOpen=false;   // lista de archivos colapsada por defecto
+
+const BP=[ {l:'menos de 1 mes',lo:0,hi:1},{l:'1 a 3 meses',lo:1,hi:3},{l:'3 a 6 meses',lo:3,hi:6},{l:'6 a 12 meses',lo:6,hi:12},{l:'más de 12 meses',lo:12,hi:1e9} ];
+const BI=[ {l:'0–30 días',lo:0,hi:30,c:'var(--teal)'},{l:'31–60',lo:31,hi:60,c:'var(--amber)'},{l:'61–90',lo:61,hi:90,c:'var(--coral)'},{l:'+90',lo:91,hi:1e9,c:'var(--deep)'} ];
+const idxBP=v=>v==null?-1:BP.findIndex(b=>v>=b.lo&&v<b.hi);
+const idxBI=d=>d==null?-1:BI.findIndex(b=>d>=b.lo&&d<=b.hi);
+const colorDias=d=>d==null?'var(--line)':BI[idxBI(d)].c;
+
+/* ============ carga ============ */
+const $=id=>document.getElementById(id);
+const drop=$('drop'), fileInput=$('file');
+
+drop.addEventListener('click',()=>fileInput.click());
+drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fileInput.click();}});
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
+drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');cargar([...e.dataTransfer.files]);});
+fileInput.addEventListener('change',e=>cargar([...e.target.files]));
+
+function periodoDeNombre(n){
+  const m=n.match(/(\d{4})(\d{2})(\d{2})/);
+  if(!m) return null;
+  let y=+m[1], mo=+m[2]-1;          // mes de exportación (0-idx)
+  mo-=1; if(mo<0){mo=11;y-=1;}      // el período es el mes anterior
+  return fmtKey(y,mo);
+}
+// Deduce el período por el CONTENIDO: mes más frecuente entre las fechas de baja.
+// La baja real es fechaStop (débitos automáticos) o vencimiento (socios normales).
+function periodoDeContenido(recs){
+  const cnt={};
+  recs.forEach(r=>{
+    const d=r.stop||r.venc;
+    if(d){ const k=fmtKey(d.getFullYear(),d.getMonth()); cnt[k]=(cnt[k]||0)+1; }
+  });
+  let best=null,bn=0;
+  for(const k in cnt){ if(cnt[k]>bn){bn=cnt[k];best=k;} }
+  return best;
+}
+function cargar(fs){
+  let pend=fs.length; if(!pend) return;
+  fs.forEach(f=>{
+    const r=new FileReader();
+    r.onload=()=>{
+      try{ ingerir(f.name, r.result); }catch(err){ console.error(err); }
+      if(--pend===0){ recomputar(); dbPersist(); }
+    };
+    r.onerror=()=>{ if(--pend===0) recomputar(); };
+    r.readAsText(f,'utf-8');
+  });
+}
+function ingerir(name,text){
+  const rows=parseCSV(text);
+  if(rows.length<2) return;
+  const H=rows[0].map(h=>norm(clean(h)));
+  const at=(...alts)=>{ for(const a of alts){ const i=H.indexOf(a); if(i>=0) return i; } return -1; };
+  const c={
+    sede:at('sede'), nombre:at('nombre'), dni:at('dni'), plan:at('plan'),
+    ult:at('ultimaasistencia'), stop:at('fechastop'), venc:at('vencimiento'),
+    asesor:at('asesor'), estado:at('estado'), perm:at('permanenciameses')
+  };
+  const recs=[];
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i];
+    if(!r||r.length<3) continue;
+    const nombre=clean(r[c.nombre]||'');
+    if(!nombre) continue;
+    recs.push({
+      sede:sedeCorta(r[c.sede]||''),
+      nombre, dni:clean(r[c.dni]||''),
+      plan:clean(r[c.plan]||''),
+      asesor:clean(r[c.asesor]||''),
+      estado:clean(r[c.estado]||''),
+      perm:(()=>{const v=parseFloat(clean(r[c.perm]||'').replace(',','.'));return isNaN(v)?null:v;})(),
+      ult:parseDate(r[c.ult]||''),
+      stop:parseDate(r[c.stop]||''),
+      venc:parseDate(r[c.venc]||'')
+    });
+  }
+  // período: primero por contenido (fecha de baja), luego por nombre, luego mes actual
+  let key=periodoDeContenido(recs), method='contenido';
+  if(!key){ key=periodoDeNombre(name); method='nombre'; }
+  if(!key){ key=fmtKey(new Date().getFullYear(),new Date().getMonth()); method='sin fecha'; }
+  const rec={name,key,recs,method,warn:c.ult<0||c.perm<0,text};
+  const ix=FILES.findIndex(f=>f.name===name);
+  if(ix>=0) FILES[ix]=rec; else FILES.push(rec);
+}
+
+/* ============ recompute ============ */
+function recomputar(){
+  // 1) expandir todos los registros crudos
+  const raw=[];
+  FILES.forEach(f=>{
+    const corte=corteDe(f.key);
+    f.recs.forEach(r=>{
+      let dias=null;
+      if(r.ult){ dias=Math.round((corte-r.ult)/DAY); if(dias<0) dias=0; }
+      raw.push(Object.assign({},r,{mes:f.key,corte,dias,da:norm(r.estado).includes('da')}));
+    });
+  });
+  // 2) deduplicar: un socio único por sede + período.
+  //    clave = DNI (si existe) o nombre normalizado. Ante duplicado, se queda
+  //    el registro más completo (con última asistencia y/o permanencia).
+  const seen=new Map(); DUP=0;
+  const score=r=>(r.ult?2:0)+(r.perm!=null?1:0);
+  raw.forEach(r=>{
+    const id=norm(r.dni)||norm(r.nombre);
+    if(!id){ seen.set('__x'+seen.size, r); return; } // sin identificador: no se toca
+    const k=r.sede+'|'+r.mes+'|'+id;
+    const prev=seen.get(k);
+    if(!prev){ seen.set(k,r); }
+    else{ DUP++; if(score(r)>score(prev)) seen.set(k,r); }
+  });
+  DATA=[...seen.values()];
+  // 3) aviso de duplicados
+  const dd=$('dedup');
+  if(DUP>0){
+    dd.classList.remove('hide');
+    dd.innerHTML='<b>'+DUP+' baja'+(DUP===1?'':'s')+' duplicada'+(DUP===1?'':'s')+' eliminada'+(DUP===1?'':'s')+'.</b> '
+      +'Se contó cada socio una sola vez por sede y período (clave: DNI, o nombre si falta el DNI). '
+      +DATA.length+' socios únicos en total.';
+  } else { dd.classList.add('hide'); dd.innerHTML=''; }
+  const sedes=[...new Set(DATA.map(d=>d.sede))].sort();
+  const meses=[...new Set(DATA.map(d=>d.mes))].sort();
+  if(!sel.sede.size) sedes.forEach(s=>sel.sede.add(s));
+  if(!sel.mes.size) meses.forEach(m=>sel.mes.add(m));
+  [...sel.sede].forEach(s=>{if(!sedes.includes(s))sel.sede.delete(s)});
+  [...sel.mes].forEach(m=>{if(!meses.includes(m))sel.mes.delete(m)});
+  renderFiles(); renderChips(sedes,meses); renderMem();
+  $('app').classList.toggle('hide',!DATA.length);
+  if(DATA.length) render();
+}
+function renderFiles(){
+  const el=$('files'); el.innerHTML='';
+  const metodo={contenido:'detectado',nombre:'del nombre','sin fecha':'sin fecha'};
+  FILES.forEach((f,i)=>{
+    const div=document.createElement('div'); div.className='frow';
+    div.innerHTML='<span class="fn">'+f.name+'</span>'
+      +'<span class="cnt">'+f.recs.length+' bajas</span>'
+      +(f.warn?'<span class="warn">faltan columnas</span>':'')
+      +'<span class="per">'+fmtLabel(f.key)+'<em>'+(metodo[f.method]||'')+'</em></span>'
+      +'<button title="Quitar">✕</button>';
+    div.querySelector('button').onclick=()=>{FILES.splice(i,1);recomputar();dbPersist();};
+    el.appendChild(div);
+  });
+  // encabezado colapsable
+  const wrap=$('filesWrap'), tog=$('filesToggle');
+  wrap.classList.toggle('hide',!FILES.length);
+  $('filesCount').textContent=FILES.length+' archivo'+(FILES.length===1?'':'s')+' cargado'+(FILES.length===1?'':'s');
+  if(FILES.length){
+    el.classList.toggle('hide',!filesOpen);
+    tog.setAttribute('aria-expanded',filesOpen);
+    tog.onclick=()=>{ filesOpen=!filesOpen; el.classList.toggle('hide',!filesOpen); tog.setAttribute('aria-expanded',filesOpen); };
+  }
+}
+function renderChips(sedes,meses){
+  const mk=(host,vals,set,lab)=>{
+    host.innerHTML='';
+    vals.forEach(v=>{
+      const b=document.createElement('button'); b.className='chip';
+      b.textContent=lab?lab(v):v; b.setAttribute('aria-pressed',set.has(v));
+      b.onclick=()=>{ set.has(v)?set.delete(v):set.add(v); if(!set.size) set.add(v); sel.cell=null; recomputar(); };
+      host.appendChild(b);
+    });
+  };
+  mk($('fSede'),sedes,sel.sede);
+  mk($('fMes'),meses,sel.mes,fmtLabel);
+  const daHost=$('fDA'); daHost.innerHTML='';
+  [['all','Todas'],['noda','Sin DA'],['onlyda','Solo DA']].forEach(([v,l])=>{
+    const b=document.createElement('button'); b.className='chip';
+    b.textContent=l; b.setAttribute('aria-pressed',sel.da===v);
+    b.onclick=()=>{ sel.da=v; sel.cell=null; recomputar(); };
+    daHost.appendChild(b);
+  });
+}
+function pasaDA(d){ return sel.da==='all' || (sel.da==='noda'&&!d.da) || (sel.da==='onlyda'&&d.da); }
+const filtrado=()=>DATA.filter(d=>
+  sel.sede.has(d.sede) && sel.mes.has(d.mes) && pasaDA(d) &&
+  (!sel.cell || (idxBP(d.perm)===sel.cell[0] && idxBI(d.dias)===sel.cell[1]))
+);
+function mediana(a){ if(!a.length) return null; const s=[...a].sort((x,y)=>x-y); const m=s.length>>1; return s.length%2?s[m]:(s[m-1]+s[m])/2; }
+
+/* ============ render ============ */
+function render(){
+  const D=filtrado();
+  const conDias=D.filter(d=>d.dias!=null);
+  const mas30=conDias.filter(d=>d.dias>30).length;
+  const pct=conDias.length?Math.round(mas30/conDias.length*100):0;
+  const medD=mediana(conDias.map(d=>d.dias));
+  const medP=mediana(D.filter(d=>d.perm!=null).map(d=>d.perm));
+  const nuevos=D.filter(d=>d.perm!=null&&d.perm<3).length;
+  const pctN=D.length?Math.round(nuevos/D.length*100):0;
+
+  $('kpis').innerHTML=
+   card('Bajas en el corte',D.length,'','socios en el filtro actual')
+  +card('Permanencia mediana',medP==null?'—':medP.toFixed(1),'meses','la mitad se fue antes de esto')
+  +card('Días sin venir · mediana',medD==null?'—':medD,'días','al cierre del período')
+  +card('Se fueron antes de los 3 meses','','',pctN+'% de las bajas',nuevos)
+  +card('Ya estaban perdidos','','','+30 días sin pisar el gym',pct+'%',true);
+
+  timeline(D);
+  barras($('barPerm'),BP.map(b=>({l:b.l,n:D.filter(d=>d.perm!=null&&d.perm>=b.lo&&d.perm<b.hi).length})),D.length,'var(--teal)');
+  barras($('barInact'),BI.map(b=>({l:b.l,n:conDias.filter(d=>d.dias>=b.lo&&d.dias<=b.hi).length,c:b.c}))
+        .concat([{l:'sin registro',n:D.length-conDias.length,c:'var(--line)'}]),D.length,null);
+  matriz();
+  tabla(D);
+}
+function card(k,v,u,h,vAlt,alert){
+  const val=vAlt!==undefined&&vAlt!==''?vAlt:v;
+  return '<div class="kpi'+(alert?' alert':'')+'"><div class="k">'+k+'</div>'
+    +'<div class="v mono">'+val+(u?'<span class="u">'+u+'</span>':'')+'</div>'
+    +'<div class="h">'+h+'</div></div>';
+}
+function barras(host,items,total,fixed){
+  const max=Math.max(1,...items.map(i=>i.n));
+  host.innerHTML=items.map(i=>{
+    const p=total?Math.round(i.n/total*100):0;
+    return '<div class="brow"><div class="bl">'+i.l+'</div>'
+      +'<div class="btrack"><div class="bfill" style="width:'+(i.n/max*100)+'%;background:'+(i.c||fixed)+'"></div></div>'
+      +'<div class="bv">'+i.n+' <em>'+p+'%</em></div></div>';
+  }).join('');
+}
+function timeline(D){
+  const host=$('tl');
+  // franjas + % sobre el total de bajas del filtro (incluye las sin registro)
+  const tot=D.length;
+  const cats=[
+    {l:'0–30 días',c:'var(--teal)', n:D.filter(d=>d.dias!=null&&d.dias<=30).length},
+    {l:'31–60 días',c:'var(--amber)',n:D.filter(d=>d.dias!=null&&d.dias>=31&&d.dias<=60).length},
+    {l:'61–90 días',c:'var(--coral)',n:D.filter(d=>d.dias!=null&&d.dias>=61&&d.dias<=90).length},
+    {l:'+90 días',c:'var(--deep)', n:D.filter(d=>d.dias!=null&&d.dias>90).length},
+    {l:'sin registro',c:'var(--line)',n:D.filter(d=>d.dias==null).length}
+  ];
+  const pc=n=>tot?Math.round(n/tot*100):0;
+  // barra apilada 100%
+  $('tlStack').innerHTML=cats.filter(x=>x.n>0).map(x=>{
+    const p=x.n/tot*100, lbl=p>=8?pc(x.n)+'%':'';
+    return '<div class="seg" style="width:'+p+'%;background:'+x.c+'" title="'+x.l+': '+x.n+' ('+pc(x.n)+'%)">'+lbl+'</div>';
+  }).join('');
+  // leyenda con conteo y %
+  $('tlLegend').innerHTML=cats.map(x=>
+    '<span><i style="background:'+x.c+'"></i>'+x.l+' · <b>'+pc(x.n)+'%</b> <span style="opacity:.7">('+x.n+')</span></span>'
+  ).join('');
+
+  const rows=D.filter(d=>d.dias!=null).sort((a,b)=>b.dias-a.dias);
+  if(!rows.length){ host.innerHTML='<div class="empty">No hay registros de última asistencia en este filtro.</div>'; return; }
+  const maxD=Math.max(30,...rows.map(r=>r.dias));
+  const H=Math.max(160,Math.min(rows.length*Math.max(1.4,Math.min(6,520/rows.length)),480));
+  const rh=H/rows.length, W=1000, L=0, R=54;
+  const x=d=>L+(1-d/maxD)*(W-R-L);
+  const ticks=[0,30,60,90,120,180,240,300,365].filter(t=>t<=maxD);
+  let s='<svg viewBox="0 0 '+W+' '+(H+34)+'" preserveAspectRatio="none" role="img" aria-label="Días sin asistir por socio">';
+  ticks.forEach(t=>{ s+='<line class="gl" x1="'+x(t)+'" y1="0" x2="'+x(t)+'" y2="'+H+'"/>'
+    +'<text class="axl" x="'+x(t)+'" y="'+(H+16)+'" text-anchor="middle">'+t+'</text>'; });
+  s+='<text class="axl" x="'+x(0)+'" y="'+(H+30)+'" text-anchor="end">cierre del período</text>';
+  rows.forEach((r,i)=>{
+    const y=i*rh+rh/2, w=(W-R)-x(r.dias);
+    s+='<rect x="'+x(r.dias)+'" y="'+(y-Math.max(.9,rh*.62)/2)+'" width="'+Math.max(w,1)+'" height="'+Math.max(.9,rh*.62)+'" fill="'+colorDias(r.dias)+'" rx="1">'
+      +'<title>'+esc(r.nombre)+' · '+r.sede+' · '+r.dias+' días sin venir · permanencia '+(r.perm==null?'s/d':r.perm.toFixed(1)+' m')+'</title></rect>';
+  });
+  s+='</svg>';
+  host.innerHTML=s;
+}
+function matriz(){
+  const D=DATA.filter(d=>sel.sede.has(d.sede)&&sel.mes.has(d.mes)&&pasaDA(d));
+  const g=BP.map((_,p)=>BI.map((__,i)=>D.filter(d=>idxBP(d.perm)===p&&idxBI(d.dias)===i).length));
+  const max=Math.max(1,...g.flat());
+  const host=$('mx');
+  host.style.gridTemplateColumns='140px repeat('+BI.length+',1fr)';
+  let h='<div></div>'+BI.map(b=>'<div class="hd">'+b.l+'</div>').join('');
+  g.forEach((row,p)=>{
+    h+='<div class="rh">'+BP[p].l+'</div>';
+    row.forEach((n,i)=>{
+      const a=n/max, on=sel.cell&&sel.cell[0]===p&&sel.cell[1]===i;
+      const bg=n?'color-mix(in srgb, '+BI[i].c+' '+(12+a*72)+'%, var(--ground))':'var(--ground)';
+      h+='<button class="cell" style="background:'+bg+';color:'+(a>.5?'#0B2225':'var(--bone)')+'" data-p="'+p+'" data-i="'+i+'" aria-pressed="'+!!on+'">'+(n||'·')+'</button>';
+    });
+  });
+  host.innerHTML=h;
+  host.querySelectorAll('.cell').forEach(b=>b.onclick=()=>{
+    const p=+b.dataset.p,i=+b.dataset.i;
+    sel.cell=(sel.cell&&sel.cell[0]===p&&sel.cell[1]===i)?null:[p,i];
+    render();
+    document.getElementById('tbl').scrollIntoView({behavior:'smooth',block:'center'});
+  });
+  $('clearCell').classList.toggle('hide',!sel.cell);
+}
+const COLS=[['nombre','Socio'],['sede','Sede'],['mes','Período'],['dias','Días sin venir'],['perm','Permanencia (m)'],['plan','Plan'],['asesor','Asesor'],['estado','Estado']];
+function tabla(D){
+  const rows=[...D].sort((a,b)=>{
+    let x=a[sort.col],y=b[sort.col];
+    if(sort.col==='dias'||sort.col==='perm'){ x=x==null?-1:x; y=y==null?-1:y; return (x-y)*sort.dir; }
+    return String(x||'').localeCompare(String(y||''),'es')*sort.dir;
+  });
+  $('tcount').textContent=rows.length+' socios'+(sel.cell?' · celda '+BP[sel.cell[0]].l+' × '+BI[sel.cell[1]].l:'');
+  const show=rows.slice(0,400);
+  let h='<thead><tr>'+COLS.map(([k,l])=>'<th data-k="'+k+'">'+l+(sort.col===k?(sort.dir>0?' ▲':' ▼'):'')+'</th>').join('')+'</tr></thead><tbody>';
+  show.forEach(r=>{
+    h+='<tr><td>'+esc(r.nombre)+'</td><td>'+r.sede+'</td><td>'+fmtLabel(r.mes)+'</td>'
+      +'<td class="n"><span class="tag" style="background:'+colorDias(r.dias)+';color:#0B2225">'+(r.dias==null?'s/d':r.dias)+'</span></td>'
+      +'<td class="n">'+(r.perm==null?'—':r.perm.toFixed(1))+'</td>'
+      +'<td>'+esc(r.plan)+'</td><td>'+esc(r.asesor)+'</td><td>'+esc(r.estado)+'</td></tr>';
+  });
+  h+='</tbody>';
+  if(rows.length>400) h+='<tfoot><tr><td colspan="8" style="color:var(--muted);text-align:center">Se muestran los primeros 400 · descargá el CSV para verlos todos</td></tr></tfoot>';
+  const t=$('tbl'); t.innerHTML=h;
+  t.querySelectorAll('th').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k;
+    if(sort.col===k) sort.dir*=-1; else {sort.col=k;sort.dir=(k==='dias'||k==='perm')?-1:1;}
+    tabla(D);
+  });
+}
+const esc=s=>String(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+$('clearCell').onclick=()=>{sel.cell=null;render();};
+$('exp').onclick=()=>{
+  const D=filtrado();
+  const head=['Socio','DNI','Sede','Periodo','Corte','Ultima asistencia','Dias sin venir','Permanencia meses','Plan','Asesor','Estado'];
+  const iso=d=>d?d.toISOString().slice(0,10):'';
+  const body=D.map(r=>[r.nombre,r.dni,r.sede,r.mes,iso(r.corte),iso(r.ult),r.dias==null?'':r.dias,r.perm==null?'':r.perm,r.plan,r.asesor,r.estado]);
+  const csv=[head,...body].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download='nomade_bajas_fuga.csv'; a.click();
+};
+/* ============ memoria local (IndexedDB) ============ */
+const DB_NAME='nomade_radar', DB_STORE='kv';
+let MEM_OK=false;
+function dbOpen(){
+  return new Promise((res,rej)=>{
+    let q;
+    try{ q=indexedDB.open(DB_NAME,1); }catch(e){ return rej(e); }
+    q.onupgradeneeded=()=>{ q.result.createObjectStore(DB_STORE); };
+    q.onsuccess=()=>res(q.result);
+    q.onerror=()=>rej(q.error);
+  });
+}
+async function dbSet(key,val){
+  const db=await dbOpen();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(DB_STORE,'readwrite');
+    tx.objectStore(DB_STORE).put(val,key);
+    tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error);
+  });
+}
+async function dbGet(key){
+  const db=await dbOpen();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(DB_STORE,'readonly');
+    const r=tx.objectStore(DB_STORE).get(key);
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+  });
+}
+function snapshot(){ return FILES.map(f=>({name:f.name,text:f.text})); }
+function dbPersist(){ if(MEM_OK) dbSet('files',snapshot()).catch(e=>console.warn('persist',e)); }
+async function dbLoad(){
+  try{
+    const saved=await dbGet('files');
+    if(saved && saved.length){
+      saved.forEach(s=>{ try{ if(s.name&&s.text) ingerir(s.name,s.text); }catch(e){} });
+      recomputar();
+    }
+  }catch(e){ console.warn('load',e); }
+}
+async function memClear(){
+  if(!confirm('¿Vaciar la memoria? Se borran todos los meses guardados en este navegador. (Podés recuperarlos si tenés un respaldo exportado.)')) return;
+  FILES.length=0;
+  try{ await dbSet('files',[]); }catch(e){}
+  recomputar();
+}
+function exportBackup(){
+  const data=JSON.stringify({v:1,fecha:new Date().toISOString(),files:snapshot()});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
+  a.download='nomade_radar_respaldo.json'; a.click();
+}
+function importBackup(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const obj=JSON.parse(r.result);
+      const arr=Array.isArray(obj)?obj:(obj.files||[]);
+      let k=0;
+      arr.forEach(s=>{ if(s.name&&s.text){ ingerir(s.name,s.text); k++; } });
+      recomputar(); dbPersist();
+      if(!k) alert('El respaldo no tenía archivos válidos.');
+    }catch(e){ alert('No pude leer el respaldo. ¿Es el JSON correcto?'); }
+  };
+  r.readAsText(file,'utf-8');
+}
+function renderMem(){
+  const el=$('mem'); el.classList.remove('hide');
+  if(!MEM_OK){
+    el.innerHTML='<span class="amber">● Memoria local no disponible en esta vista.</span> '
+      +'Descargá este archivo y abrilo desde tu compu (doble clic) para que los meses queden guardados y se vayan acumulando.';
+    return;
+  }
+  el.innerHTML='<span class="ok">● Memoria local activa</span> '
+    +'<span>'+FILES.length+' archivo'+(FILES.length===1?'':'s')+' guardado'+(FILES.length===1?'':'s')+' en este navegador · se acumulan solos</span>'
+    +'<button class="lnk" id="mExp">Exportar respaldo</button>'
+    +'<button class="lnk" id="mImp">Importar respaldo</button>'
+    +'<button class="lnk danger" id="mClr">Vaciar memoria</button>';
+  $('mExp').onclick=exportBackup;
+  $('mImp').onclick=()=>$('backup').click();
+  $('mClr').onclick=memClear;
+}
+$('backup').addEventListener('change',e=>{ if(e.target.files[0]) importBackup(e.target.files[0]); e.target.value=''; });
+
+/* arranque: detecta memoria, restaura lo guardado */
+(async function init(){
+  try{ await dbOpen(); MEM_OK=true; }catch(e){ MEM_OK=false; }
+  await dbLoad();
+  renderMem();
+})();
+
+</script>
+</body>
+</html>
