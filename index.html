@@ -198,6 +198,7 @@ td.n{font-family:'IBM Plex Mono',monospace;text-align:right}
   </div>
   <input type="file" id="file" multiple accept=".csv,text/csv">
   <div id="status" class="status hide"></div>
+  <div id="vacio" class="empty hide"></div>
 
   <div id="app" class="hide">
 
@@ -494,8 +495,15 @@ function refrescar(){
   [...sel.sede].forEach(s=>{if(!sedes.includes(s))sel.sede.delete(s)});
   [...sel.mes].forEach(m=>{if(!meses.includes(m))sel.mes.delete(m)});
   renderChips(sedes,meses);
-  $('app').classList.toggle('hide',!DATA.length);
-  if(DATA.length) render();
+  const hayDatos=DATA.length>0;
+  $('app').classList.toggle('hide',!hayDatos);
+  $('vacio').classList.toggle('hide',hayDatos);
+  if(!hayDatos){
+    $('vacio').textContent = ADMIN
+      ? 'Todavía no hay bajas cargadas. Arrastrá un CSV en la zona de carga para empezar.'
+      : 'Todavía no hay estadísticas para mostrar.';
+  }
+  if(hayDatos) render();
 }
 function renderChips(sedes,meses){
   const mk=(host,vals,set,lab)=>{
