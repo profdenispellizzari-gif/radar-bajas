@@ -38,7 +38,9 @@ h1,h2,h3,.disp{font-family:'Barlow Condensed','Inter',sans-serif;font-weight:600
 
 /* ---------- login ---------- */
 .login-screen{position:fixed;inset:0;z-index:100;background:var(--ground);display:flex;align-items:center;justify-content:center;padding:24px}
-.login-card{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;text-align:center}
+.login-card{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;text-align:center;position:relative}
+.login-card .lnk{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12.5px;text-decoration:underline;font-family:'Inter',sans-serif;padding:4px 0;margin-top:2px}
+.login-card .lnk:hover{color:var(--bone)}
 .login-card .mark{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:38px;letter-spacing:.08em;text-transform:uppercase;color:var(--bone);line-height:1;margin-bottom:2px}
 .login-card .mark span{color:var(--teal)}
 .login-sub{color:var(--muted);font-size:13px;margin:0 0 8px}
@@ -167,11 +169,12 @@ td.n{font-family:'IBM Plex Mono',monospace;text-align:right}
 <div id="login" class="login-screen hide">
   <div class="login-card">
     <div class="mark">Radar de <span>fugas</span></div>
-    <p class="login-sub">Ingresá con tu cuenta del equipo</p>
+    <p class="login-sub">Acceso del equipo · para cargar datos y ver el DNI</p>
     <input type="email" id="email" placeholder="Email" autocomplete="username">
     <input type="password" id="pass" placeholder="Contraseña" autocomplete="current-password">
     <button type="button" class="btn" id="loginBtn">Entrar</button>
     <div id="loginErr" class="login-err"></div>
+    <button type="button" class="lnk" id="closeLogin">← Volver a las estadísticas</button>
   </div>
 </div>
 
@@ -182,14 +185,14 @@ td.n{font-family:'IBM Plex Mono',monospace;text-align:right}
     </div>
     <div class="head-right">
       <h1>Bajas · permanencia × días sin asistir</h1>
-      <div id="session" class="session hide"><span id="sesEmail" class="mono"></span><button id="logout" class="lnk">Salir</button></div>
+      <div id="session" class="session"><span id="sesEmail" class="mono hide"></span><button id="logout" class="lnk hide">Salir</button><button id="openLogin" class="lnk hide">Entrar (equipo)</button></div>
     </div>
   </div>
 </header>
 
 <div class="wrap">
 
-  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Cargar archivos CSV de bajas">
+  <div class="drop hide" id="drop" tabindex="0" role="button" aria-label="Cargar archivos CSV de bajas">
     <div class="big">Soltá acá los CSV de bajas</div>
     <div class="small">Uno por sede y por mes · se guardan en la base privada del equipo</div>
   </div>
@@ -338,9 +341,12 @@ const colorDias=d=>d==null?'var(--line)':BI[idxBI(d)].c;
 const $=id=>document.getElementById(id);
 
 /* ============ auth ============ */
+let ADMIN=false;   // true = equipo logueado (ve DNI, puede cargar)
 $('loginBtn').onclick=doLogin;
 $('email').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 $('pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+$('openLogin').onclick=()=>{ $('login').classList.remove('hide'); $('email').focus(); };
+$('closeLogin').onclick=()=>{ $('login').classList.add('hide'); $('loginErr').textContent=''; };
 $('logout').onclick=async()=>{ try{await sb.auth.signOut();}catch(e){} location.reload(); };
 
 async function doLogin(){
@@ -350,25 +356,19 @@ async function doLogin(){
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   $('loginBtn').textContent='Entrar'; $('loginBtn').disabled=false;
   if(error){ $('loginErr').textContent=traducirError(error.message); return; }
-  mostrarApp(data.session);
+  location.reload(); // recarga en modo equipo
 }
 function traducirError(m){
   if(/invalid login/i.test(m)) return 'Email o contraseña incorrectos.';
   if(/email not confirmed/i.test(m)) return 'Falta confirmar el email de este usuario (activá "Auto Confirm" en Supabase).';
   return m;
 }
-function mostrarLogin(){ $('login').classList.remove('hide'); $('session').classList.add('hide'); }
-async function mostrarApp(session){
-  $('login').classList.add('hide');
-  $('session').classList.remove('hide');
-  $('sesEmail').textContent=session.user.email;
-  await loadFromDB();
-}
 
 /* ============ base de datos ============ */
 async function loadFromDB(){
   setStatus('Cargando datos…');
-  const { data, error } = await sb.from('bajas').select('*');
+  const fuente = ADMIN ? 'bajas' : 'bajas_publica';
+  const { data, error } = await sb.from(fuente).select('*');
   if(error){ setStatus('Error al leer la base: '+error.message, true); return; }
   DATA=(data||[]).map(filaADato);
   $('status').classList.add('hide');
@@ -626,8 +626,10 @@ function matriz(){
   });
   $('clearCell').classList.toggle('hide',!sel.cell);
 }
-const COLS=[['nombre','Socio'],['sede','Sede'],['mes','Período'],['dias','Días sin venir'],['perm','Permanencia (m)'],['plan','Plan'],['asesor','Asesor'],['estado','Estado']];
+const COLS_PUB=[['nombre','Socio'],['sede','Sede'],['mes','Período'],['dias','Días sin venir'],['perm','Permanencia (m)'],['plan','Plan'],['asesor','Asesor'],['estado','Estado']];
+const COLS_ADM=[['nombre','Socio'],['dni','DNI'],['sede','Sede'],['mes','Período'],['dias','Días sin venir'],['perm','Permanencia (m)'],['plan','Plan'],['asesor','Asesor'],['estado','Estado']];
 function tabla(D){
+  const COLS = ADMIN ? COLS_ADM : COLS_PUB;
   const rows=[...D].sort((a,b)=>{
     let x=a[sort.col],y=b[sort.col];
     if(sort.col==='dias'||sort.col==='perm'){ x=x==null?-1:x; y=y==null?-1:y; return (x-y)*sort.dir; }
@@ -637,13 +639,15 @@ function tabla(D){
   const show=rows.slice(0,400);
   let h='<thead><tr>'+COLS.map(([k,l])=>'<th data-k="'+k+'">'+l+(sort.col===k?(sort.dir>0?' ▲':' ▼'):'')+'</th>').join('')+'</tr></thead><tbody>';
   show.forEach(r=>{
-    h+='<tr><td>'+esc(r.nombre)+'</td><td>'+r.sede+'</td><td>'+fmtLabel(r.mes)+'</td>'
+    h+='<tr><td>'+esc(r.nombre)+'</td>'
+      +(ADMIN?'<td class="mono">'+esc(r.dni)+'</td>':'')
+      +'<td>'+r.sede+'</td><td>'+fmtLabel(r.mes)+'</td>'
       +'<td class="n"><span class="tag" style="background:'+colorDias(r.dias)+';color:#0B2225">'+(r.dias==null?'s/d':r.dias)+'</span></td>'
       +'<td class="n">'+(r.perm==null?'—':r.perm.toFixed(1))+'</td>'
       +'<td>'+esc(r.plan)+'</td><td>'+esc(r.asesor)+'</td><td>'+esc(r.estado)+'</td></tr>';
   });
   h+='</tbody>';
-  if(rows.length>400) h+='<tfoot><tr><td colspan="8" style="color:var(--muted);text-align:center">Se muestran los primeros 400 · descargá el CSV para verlos todos</td></tr></tfoot>';
+  if(rows.length>400) h+='<tfoot><tr><td colspan="'+COLS.length+'" style="color:var(--muted);text-align:center">Se muestran los primeros 400 · descargá el CSV para verlos todos</td></tr></tfoot>';
   const t=$('tbl'); t.innerHTML=h;
   t.querySelectorAll('th').forEach(th=>th.onclick=()=>{
     const k=th.dataset.k;
@@ -656,9 +660,14 @@ const esc=s=>String(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt
 $('clearCell').onclick=()=>{sel.cell=null;render();};
 $('exp').onclick=()=>{
   const D=filtrado();
-  const head=['Socio','DNI','Sede','Periodo','Corte','Ultima asistencia','Dias sin venir','Permanencia meses','Plan','Asesor','Estado'];
   const iso=d=>d?fmtISO(d):'';
-  const body=D.map(r=>[r.nombre,r.dni,r.sede,r.mes,iso(r.corte),iso(r.ult),r.dias==null?'':r.dias,r.perm==null?'':r.perm,r.plan,r.asesor,r.estado]);
+  const head=ADMIN
+    ? ['Socio','DNI','Sede','Periodo','Corte','Ultima asistencia','Dias sin venir','Permanencia meses','Plan','Asesor','Estado']
+    : ['Socio','Sede','Periodo','Corte','Ultima asistencia','Dias sin venir','Permanencia meses','Plan','Asesor','Estado'];
+  const body=D.map(r=>{
+    const base=[r.sede,r.mes,iso(r.corte),iso(r.ult),r.dias==null?'':r.dias,r.perm==null?'':r.perm,r.plan,r.asesor,r.estado];
+    return ADMIN ? [r.nombre,r.dni,...base] : [r.nombre,...base];
+  });
   const csv=[head,...body].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
@@ -668,16 +677,22 @@ $('exp').onclick=()=>{
 /* ============ arranque ============ */
 (async function init(){
   if(typeof supabase==='undefined'){
-    mostrarLogin();
-    $('loginErr').textContent='No se pudo cargar la librería (revisá tu conexión).';
+    $('openLogin').classList.remove('hide');
+    setStatus('No se pudo cargar la librería (revisá tu conexión).', true);
     return;
   }
   sb=supabase.createClient(SB_URL,SB_KEY);
-  try{
-    const { data:{ session } } = await sb.auth.getSession();
-    if(session) mostrarApp(session); else mostrarLogin();
-  }catch(e){ console.error(e); mostrarLogin(); }
-  sb.auth.onAuthStateChange((_ev,session)=>{ if(!session) mostrarLogin(); });
+  let session=null;
+  try{ const r=await sb.auth.getSession(); session=r.data.session; }catch(e){ console.error(e); }
+  ADMIN=!!session;
+  if(ADMIN){
+    $('sesEmail').textContent=session.user.email; $('sesEmail').classList.remove('hide');
+    $('logout').classList.remove('hide');
+    $('drop').classList.remove('hide');
+  } else {
+    $('openLogin').classList.remove('hide');
+  }
+  await loadFromDB();
 })();
 </script>
 </body>
