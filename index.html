@@ -73,6 +73,19 @@ input[type=file]{display:none}
 .status{margin-top:16px;font-size:12.5px;color:var(--muted);background:var(--ground2);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
 .status .ok{color:var(--teal);font-weight:600}
 .status .amber{color:var(--amber);font-weight:600}
+.adm-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin-top:16px;background:var(--ground2);border:1px solid var(--line);border-radius:8px;padding:11px 14px;color:var(--bone);cursor:pointer;font-family:'Inter',sans-serif;font-size:12.5px;text-align:left}
+.adm-toggle:hover{border-color:var(--teal)}
+.adm-toggle .chev{transition:transform .15s;color:var(--muted);font-size:13px}
+.adm-toggle[aria-expanded=true] .chev{transform:rotate(90deg)}
+.adm-body{margin-top:10px;background:var(--ground2);border:1px solid var(--line);border-radius:8px;padding:8px 14px 14px}
+.adm-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(39,88,94,.4);font-size:12.5px}
+.adm-row:last-child{border-bottom:none}
+.adm-row .p{font-family:'IBM Plex Mono',monospace;color:var(--bone);min-width:96px}
+.adm-row .s{color:var(--muted);flex:1;min-width:80px}
+.adm-row .c{font-family:'IBM Plex Mono',monospace;color:var(--teal)}
+.adm-row .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;text-decoration:underline;font-family:'Inter',sans-serif}
+.adm-row .del:hover{color:var(--coral)}
+.adm-foot{margin-top:12px;display:flex;justify-content:flex-end}
 
 /* ---------- filters ---------- */
 .bar{position:sticky;top:0;z-index:20;background:rgba(14,43,46,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);margin-bottom:30px}
@@ -199,6 +212,16 @@ td.n{font-family:'IBM Plex Mono',monospace;text-align:right}
   <input type="file" id="file" multiple accept=".csv,text/csv">
   <div id="status" class="status hide"></div>
   <div id="vacio" class="empty hide"></div>
+
+  <div id="admin" class="hide">
+    <button id="admToggle" class="adm-toggle" aria-expanded="false">
+      <span id="admCount">Datos cargados</span><span class="chev">▸</span>
+    </button>
+    <div id="admBody" class="adm-body hide">
+      <div id="admList"></div>
+      <div class="adm-foot"><button class="btn ghost" id="expAll">Exportar todo (respaldo)</button></div>
+    </div>
+  </div>
 
   <div id="app" class="hide">
 
@@ -504,7 +527,45 @@ function refrescar(){
       : 'Todavía no hay estadísticas para mostrar.';
   }
   if(hayDatos) render();
+  renderAdmin();
 }
+
+/* ============ panel de administración (solo equipo) ============ */
+let admOpen=false;
+$('admToggle').onclick=()=>{ admOpen=!admOpen; $('admBody').classList.toggle('hide',!admOpen); $('admToggle').setAttribute('aria-expanded',admOpen); };
+function renderAdmin(){
+  if(!ADMIN){ $('admin').classList.add('hide'); return; }
+  $('admin').classList.toggle('hide', DATA.length===0);
+  if(!DATA.length) return;
+  const g=new Map();
+  DATA.forEach(d=>{ const k=d.mes+'|'+d.sede; g.set(k,(g.get(k)||0)+1); });
+  const items=[...g.entries()].map(([k,n])=>{ const [mes,sede]=k.split('|'); return {mes,sede,n}; })
+    .sort((a,b)=> a.mes<b.mes?1 : a.mes>b.mes?-1 : a.sede.localeCompare(b.sede,'es'));
+  $('admCount').textContent='Datos cargados · '+items.length+' bloque'+(items.length===1?'':'s')+' · '+DATA.length+' socios';
+  $('admList').innerHTML=items.map((it,i)=>
+    '<div class="adm-row"><span class="p">'+fmtLabel(it.mes)+'</span><span class="s">'+esc(it.sede)+'</span>'
+    +'<span class="c">'+it.n+' bajas</span>'
+    +'<button class="del" data-i="'+i+'">borrar</button></div>'
+  ).join('');
+  $('admList').querySelectorAll('.del').forEach(b=>b.onclick=()=>{ const it=items[+b.dataset.i]; borrarGrupo(it.mes,it.sede); });
+}
+async function borrarGrupo(mes,sede){
+  if(!confirm('¿Borrar las bajas de '+sede+' · '+fmtLabel(mes)+'?\nSe eliminan de la base para todos.')) return;
+  setStatus('Borrando '+sede+' · '+fmtLabel(mes)+'…');
+  const { error } = await sb.from('bajas').delete().eq('periodo',mes).eq('sede',sede);
+  if(error){ setStatus('Error al borrar: '+error.message, true); return; }
+  await loadFromDB();
+  setStatus('Bloque borrado ('+sede+' · '+fmtLabel(mes)+').');
+}
+$('expAll').onclick=()=>{
+  const iso=d=>d?fmtISO(d):'';
+  const head=['Socio','DNI','Sede','Periodo','Corte','Ultima asistencia','Dias sin venir','Permanencia meses','Plan','Asesor','Estado'];
+  const body=DATA.map(r=>[r.nombre,r.dni,r.sede,r.mes,iso(r.corte),iso(r.ult),r.dias==null?'':r.dias,r.perm==null?'':r.perm,r.plan,r.asesor,r.estado]);
+  const csv=[head,...body].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download='nomade_bajas_respaldo_completo.csv'; a.click();
+};
 function renderChips(sedes,meses){
   const mk=(host,vals,set,lab)=>{
     host.innerHTML='';
