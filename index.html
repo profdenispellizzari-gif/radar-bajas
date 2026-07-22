@@ -480,21 +480,36 @@ function parseArchivo(name,text){
       ult:parseDate(r[c.ult]||''), stop:parseDate(r[c.stop]||''), venc:parseDate(r[c.venc]||'')
     });
   }
-  let key=periodoDeContenido(recs);
-  if(!key) key=periodoDeNombre(name);
-  if(!key) key=fmtKey(new Date().getFullYear(),new Date().getMonth());
-  const rows=recs.map(r=>{
-    const dniLimpio=(r.dni||'').replace(/\D/g,'');   // solo dígitos
-    const ident=dniLimpio||norm(r.nombre);            // DNI si existe, si no el nombre normalizado
-    return {
+  // ===== REGLA DE BAJA REAL (validada en las 4 sedes) =====
+  // - 'bajas da'  -> baja real, mes = Fecha Stop
+  // - 'bajas'     -> baja real, mes = Vencimiento
+  // - 'bajas hoy' -> se DESCARTA (proceso, no es baja todavía)
+  const rows=[];
+  recs.forEach(r=>{
+    const est=norm(r.estado);
+    let mesFecha=null, esDA=false;
+    if(est.includes('bajas')&&est.includes('da')){   // 'bajas da'
+      mesFecha=r.stop; esDA=true;                     // el mes lo da la Fecha Stop
+    } else if(est==='bajas'){                          // 'bajas' (sin stop, no DA)
+      mesFecha=r.venc;                                 // el mes lo da el Vencimiento
+    } else {
+      return;                                          // 'bajas hoy' u otros: no cuenta
+    }
+    if(!mesFecha) mesFecha=r.venc||r.stop;             // respaldo si faltara la fecha
+    if(!mesFecha) return;
+    const per=fmtKey(mesFecha.getFullYear(),mesFecha.getMonth());
+    const dniLimpio=(r.dni||'').replace(/\D/g,'');
+    const ident=dniLimpio||norm(r.nombre);
+    rows.push({
       sede:r.sede, nombre:r.nombre, dni:r.dni||'',
       plan:r.plan||'', asesor:r.asesor||'', estado:r.estado||'',
       permanencia_meses:r.perm, ultima_asistencia:fmtISO(r.ult),
       fecha_stop:fmtISO(r.stop), vencimiento:fmtISO(r.venc),
-      periodo:key, es_da:norm(r.estado).includes('da'),
-      dedup_key: key+'|'+norm(r.sede)+'|'+ident
-    };
+      periodo:per, es_da:esDA,
+      dedup_key: norm(r.sede)+'|'+ident                // huella SIN período: 1 socio = 1 baja (primer stop)
+    });
   });
+  const key = rows.length ? rows[0].periodo : (periodoDeContenido(recs)||periodoDeNombre(name)||fmtKey(new Date().getFullYear(),new Date().getMonth()));
   return {key,rows,faltaCol};
 }
 
@@ -511,12 +526,12 @@ async function cargar(fs){
       rep.push({name:f.name, n:res.rows.length, info:(sedes||'—')+(res.key?' · '+fmtLabel(res.key):''), falta:res.faltaCol});
     }catch(err){ console.error(err); rep.push({name:f.name, n:0, err:true}); }
   }
-  // dedup dentro del lote por la huella normalizada, se queda el más completo
+  // dedup dentro del lote por socio (huella sin período): 1 socio = 1 baja.
+  // Si el mismo socio aparece en varios meses, nos quedamos con el PRIMER stop (mes más temprano).
   const seen=new Map();
-  const score=x=>(x.ultima_asistencia?2:0)+(x.permanencia_meses!=null?1:0);
   filas.forEach(r=>{
     const prev=seen.get(r.dedup_key);
-    if(!prev||score(r)>score(prev)) seen.set(r.dedup_key,r);
+    if(!prev || r.periodo<prev.periodo) seen.set(r.dedup_key,r);
   });
   const rows=[...seen.values()];
   const detalle=rep.map(r=>(r.n?'✓ ':'⚠ ')+esc(r.name)+': '+r.n+' bajas'
