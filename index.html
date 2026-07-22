@@ -448,10 +448,18 @@ function parseArchivo(name,text){
   const H=rowsCSV[0].map(h=>norm(clean(h)));
   const at=(...alts)=>{ for(const a of alts){ const i=H.indexOf(a); if(i>=0) return i; } return -1; };
   const c={
-    sede:at('sede'), nombre:at('nombre'), dni:at('dni'), plan:at('plan'),
-    ult:at('ultimaasistencia'), stop:at('fechastop'), venc:at('vencimiento'),
-    asesor:at('asesor'), estado:at('estado'), perm:at('permanenciameses')
+    sede:at('sede','local','sucursal'),
+    nombre:at('nombre','nombreyapellido','apellidoynombre','nombreapellido','apellidonombre','nombrecompleto','socio','cliente','nombres'),
+    dni:at('dni','documento','nrodocumento','ndocumento','numerodocumento'),
+    plan:at('plan','planactual','planes'),
+    ult:at('ultimaasistencia','fechaultimaasistencia','ultimaasistenciafecha','ultimavisita'),
+    stop:at('fechastop','stop','fechadebaja','fechabaja'),
+    venc:at('vencimiento','fechavencimiento','vence','vto'),
+    asesor:at('asesor','vendedor','responsable'),
+    estado:at('estado','situacion'),
+    perm:at('permanenciameses','permanencia','mesespermanencia','antiguedad','antiguedadmeses')
   };
+  const faltaCol = c.nombre<0 ? 'Nombre' : null;
   const recs=[];
   for(let i=1;i<rowsCSV.length;i++){
     const r=rowsCSV[i];
@@ -475,16 +483,21 @@ function parseArchivo(name,text){
     fecha_stop:fmtISO(r.stop), vencimiento:fmtISO(r.venc),
     periodo:key, es_da:norm(r.estado).includes('da')
   }));
-  return {key,rows};
+  return {key,rows,faltaCol};
 }
 
 async function cargar(fs){
   fs=[...fs]; if(!fs.length) return;
   setStatus('Procesando '+fs.length+' archivo'+(fs.length===1?'':'s')+'…');
-  let filas=[];
+  let filas=[]; const rep=[];
   for(const f of fs){
-    try{ const text=await leerTexto(f); filas=filas.concat(parseArchivo(f.name,text).rows); }
-    catch(err){ console.error(err); }
+    try{
+      const text=await leerTexto(f);
+      const res=parseArchivo(f.name,text);
+      filas=filas.concat(res.rows);
+      const sedes=[...new Set(res.rows.map(r=>r.sede))].join(', ');
+      rep.push({name:f.name, n:res.rows.length, info:(sedes||'—')+(res.key?' · '+fmtLabel(res.key):''), falta:res.faltaCol});
+    }catch(err){ console.error(err); rep.push({name:f.name, n:0, err:true}); }
   }
   // dedup dentro del lote (clave sede|periodo|dni|nombre), se queda el más completo
   const seen=new Map();
@@ -495,13 +508,22 @@ async function cargar(fs){
     if(!prev||score(r)>score(prev)) seen.set(k,r);
   });
   const rows=[...seen.values()];
-  if(!rows.length){ setStatus('No encontré bajas en esos archivos.', true); return; }
-  setStatus('Guardando '+rows.length+' bajas en la base…');
-  const { error } = await sb.from('bajas').upsert(rows,{ onConflict:'sede,periodo,dni,nombre' });
-  if(error){ setStatus('Error al guardar: '+error.message, true); return; }
+  const detalle=rep.map(r=>(r.n?'✓ ':'⚠ ')+esc(r.name)+': '+r.n+' bajas'
+    +(r.n?' ('+esc(r.info)+')':'')
+    +(r.falta?' — no encontré la columna "'+r.falta+'"':'')
+    +(r.err?' — no se pudo leer':'')).join('<br>');
+  if(!rows.length){ setStatus('No encontré bajas para cargar.<br>'+detalle, true); return; }
+  setStatus('Guardando '+rows.length+' bajas…');
+  // upsert en tandas (por si algún archivo es grande)
+  const CH=500; let subidas=0;
+  for(let i=0;i<rows.length;i+=CH){
+    const lote=rows.slice(i,i+CH);
+    const { error } = await sb.from('bajas').upsert(lote,{ onConflict:'sede,periodo,dni,nombre' });
+    if(error){ setStatus('Error al guardar: '+error.message+'<br>'+detalle, true); return; }
+    subidas+=lote.length;
+  }
   await loadFromDB();
-  const per=[...new Set(rows.map(r=>fmtLabel(r.periodo)))].join(', ');
-  setStatus(rows.length+' bajas cargadas ('+per+'). Total en la base: '+DATA.length+' socios.');
+  setStatus(subidas+' bajas cargadas. Total en la base: '+DATA.length+' socios.<br>'+detalle);
 }
 
 function setStatus(msg, err){
